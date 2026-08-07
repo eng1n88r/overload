@@ -1,0 +1,315 @@
+<p align="center">
+  <img src="assets/banner.svg" alt="Overload — self-hosted workout builder, tracker &amp; training analytics" width="880">
+</p>
+
+<p align="center">
+  <b>Build workouts, track them at the gym, see your progress, track weight and food.<br>
+  Claude can read and program your training through the built-in MCP server.</b>
+</p>
+
+**DISCLAIMER:** Overload was written by [Claude Code](https://claude.com/claude-code). It ships
+an MCP server so Claude keeps working with the training data after the code is done.
+
+## Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/desktop-dashboard.jpg" alt="Dashboard: weekly volume, sets per muscle, muscle recovery, recent and upcoming sessions" width="900">
+</p>
+
+**At the gym.** The session clock and rest timer keep running while the screen is off or you
+navigate away; every set you have already logged stays on screen while you add the next one.
+
+<p align="center">
+  <img src="assets/screenshots/mobile-live.jpg" alt="Logging a set mid-session, rest timer counting down" width="245">
+  <img src="assets/screenshots/mobile-analytics.jpg" alt="Analytics on a phone" width="245">
+  <img src="assets/screenshots/mobile-workouts.jpg" alt="Workout list, upcoming and history" width="245">
+</p>
+
+**Analytics.** Sessions against the target your plan set, weekly volume, estimated 1RM per lift,
+and set counts per muscle.
+
+<p align="center">
+  <img src="assets/screenshots/desktop-analytics.jpg" alt="Analytics: sessions per week, weekly volume, strength trend, sets per muscle, personal records" width="900">
+</p>
+
+**881 exercises** — muscles worked and equipment for all of them, photos and instructions for
+all but a handful.
+
+<p align="center">
+  <img src="assets/screenshots/desktop-exercises.jpg" alt="Exercise catalog with search and muscle, equipment and type filters" width="900">
+</p>
+
+<details>
+<summary><b>Every other screen</b> — plan, session detail, body, nutrition, settings</summary>
+
+<br>
+
+The plan drives generation: four days, target muscles per day, deload weeks, and notes the
+generator reads back to you.
+
+<p align="center">
+  <img src="assets/screenshots/desktop-plan.jpg" alt="Training plan with four days and plan notes" width="900">
+</p>
+
+A finished session, with warm-up sets marked and excluded from volume.
+
+<p align="center">
+  <img src="assets/screenshots/desktop-workout.jpg" alt="Completed workout showing every set" width="900">
+</p>
+
+Weigh-ins with a 7-day average, plus any measurement you want to track.
+
+<p align="center">
+  <img src="assets/screenshots/desktop-body.jpg" alt="Body page: weight trend and measurements" width="900">
+</p>
+
+Calories and macros, logged once a day.
+
+<p align="center">
+  <img src="assets/screenshots/desktop-nutrition.jpg" alt="Nutrition: daily macro log with 30-day macro and calorie charts" width="900">
+</p>
+
+Units, equipment, API keys for Claude, and user management for the admin.
+
+<p align="center">
+  <img src="assets/screenshots/desktop-settings.jpg" alt="Settings: account, training defaults, equipment, API keys, users" width="900">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/mobile-dashboard.jpg" alt="Dashboard on a phone" width="245">
+  <img src="assets/screenshots/mobile-nutrition.jpg" alt="Nutrition log on a phone" width="245">
+</p>
+
+</details>
+
+<sub>Screenshots use a generated demo dataset, not anyone's real training log.</sub>
+
+## Using the app
+
+**First time**
+1. Open the app in your browser and tap **Sign up**. The first account becomes the admin; after that, sign-ups are closed.
+2. Go to **Settings**:
+   - Pick **kg or lb**.
+   - Pick your **training mode** (leave "Hypertrophy" if unsure).
+   - Check the **equipment you have**. Leave everything unchecked if you train in a full gym.
+3. Adding family? As admin, use **Settings → Users (Admin)** to add accounts, reset passwords, delete a user with all their data, or temporarily reopen sign-ups.
+
+**Get a plan** — either write one yourself in **Plan**, or let Claude write it for you.
+
+Connect Claude once (see [Claude / MCP](#claude--mcp)), then just talk to it: how long you have
+been training, what you are aiming at, how many days a week you can make, what equipment you
+have, which joints you have to work around. It reads whatever history is already in the app and
+writes a real plan back into it — training days, exercises, sets and rep ranges, weekday
+anchors, deload weeks. Tell it when something changes — a tweaked shoulder, a week away, a new
+goal — and ask it to adjust; it edits the plan in place rather than starting over.
+
+From there the app generates each session from the plan, and Claude can generate them too.
+
+**Have it read your sessions back.** Once a few are logged, ask Claude how the block is going. It
+sees what you actually lifted rather than a summary: every set, how volume moved week to week,
+which lifts are climbing and which have stalled, which muscles you have been short-changing,
+what is still fatigued. Then tell it the parts the numbers miss — the last set of squats was a
+grind, the shoulder is grumbling, Thursdays never happen — and ask it to adjust. It rewrites the
+plan around both, and the next generated session comes off the new one.
+
+**Work out**
+1. Open the **Dashboard** and press the big button — it says **Continue**, **Start**, or **Generate today's workout** depending on where you are. Or build one yourself: **Workouts → New workout**.
+2. Open the workout and press **Start**.
+3. After each set, press **Log set**. The rest timer starts by itself.
+4. Not sure how to do an exercise? Tap it — nearly every exercise has photos and instructions.
+5. Press **Finish** when done.
+
+**Track yourself**
+- **Body**: log your weight each morning; add measurements like waist or arms.
+- **Nutrition**: log calories and protein/carbs/fat once a day.
+- **Dashboard** and **Analytics** show your progress: how much you lift, how strong you're getting, which muscles are recovered.
+
+## Run your own server
+
+### Docker
+
+```bash
+git clone git@github.com:eng1n88r/overload.git && cd overload
+echo "SESSION_SECRET=$(openssl rand -hex 32)" > .env
+docker compose up -d --build
+```
+
+- Open http://localhost:3002. The compose file maps `3002:3001`; change the left number to move it.
+- The first `--build` takes a few minutes; seeding the catalog on top of that is about ten seconds.
+- All data lives in `./appdata`, mounted into the container — so `docker compose down`, rebuilds
+  and version upgrades leave the database alone. Back up that folder.
+- Update: `git pull && docker compose up -d --build`. Migrations apply on start.
+- Force a catalog re-seed: set `FORCE_SEED=1` once.
+
+### Without Docker
+
+Node.js 22+. The database is one SQLite file that nothing in the app ever deletes: point
+`DATABASE_URL` at a path you own and stopping the server, rebuilding, or pulling a new version
+all leave it exactly where it is.
+
+```bash
+git clone git@github.com:eng1n88r/overload.git && cd overload
+npm ci
+(cd apps/server && npx prisma generate)
+npm run build
+
+mkdir -p appdata
+cat > .env <<EOF
+SESSION_SECRET=$(openssl rand -hex 32)
+DATABASE_URL=file:$PWD/appdata/overload.db
+PORT=3001
+EOF
+
+npx prisma migrate deploy --schema apps/server/prisma/schema.prisma   # create or upgrade the schema
+node apps/server/dist/seed.js                                         # exercise catalog
+node apps/server/dist/index.js                                        # serve
+```
+
+Open http://localhost:3001 and register. Ctrl-C to stop; run the last line again and everything
+is still there.
+
+- **Use an absolute path** for `DATABASE_URL`, as above. A relative `file:./x.db` is resolved
+  against `apps/server/prisma/`, not your shell's working directory, which is a good way to end
+  up with two databases and wonder where your data went.
+- Run all three commands from the repository root — they read the `.env` there.
+- After a `git pull`: `npm ci && npm run build`, then repeat the same three. `migrate deploy`
+  runs only the migrations that have not run yet, and never resets the database the way
+  `migrate dev` can; the seed skips a catalog it has already filled.
+- To keep it running across reboots, wrap the last line in a systemd unit, a launchd job or pm2.
+  Nothing about the app assumes a supervisor — it is one long-lived Node process.
+- Back up `appdata/overload.db`. Copying the file while the server is stopped is enough.
+
+## Claude / MCP
+
+1. In the app: **Settings → API Keys → Create key** (`ovl_...`). Keys are scoped to the user who made them.
+2. Connect Claude Code:
+
+```bash
+claude mcp add --transport http overload http://YOUR-SERVER:3001/mcp --header "Authorization: Bearer ovl_YOUR_KEY"
+```
+
+Other MCP clients: streamable-HTTP endpoint `http://YOUR-SERVER:3001/mcp`, same header.
+The same key works on the REST API (`Authorization: Bearer ovl_...` on `/api/v1/*`).
+
+Claude gets 28 user-scoped tools.
+
+<details>
+<summary><b>14 reading tools</b></summary>
+
+<br>
+
+- `get_dashboard` — session-opener rollup in one call: active plan, what's upcoming or in
+  progress, recent sessions, recovery hotspots, latest body weight, this week's volume
+- `query_workout_history` — workouts with their sets, filtered by date, status or exercise
+- `get_exercise_stats` — one exercise: e1RM trend, volume, and the last three sessions in full
+- `get_prs` — max weight and best e1RM for the most-trained exercises
+- `get_weekly_volume` — working volume (kg), sets and workout count per week
+- `get_muscle_volume` — weighted working sets per muscle per week (primary 1, secondary 0.5)
+- `get_recovery_state` — per-muscle recovery from the last 7 days, 100% being fully fresh
+- `get_body_metrics` — weight, waist, body fat and any custom measurement, as a time series
+- `get_nutrition_summary` — daily calories and macros over a date range
+- `get_active_plan` — the active plan with its days and exercise templates
+- `get_plan` — any plan by id, archived ones included
+- `list_plans` — every plan: id, name, status, dates
+- `list_exercises` — fuzzy catalog search (token and synonym based, punctuation-insensitive);
+  several queries in one call
+- `resolve_exercise_names` — import dry run: which names map to which catalog entries, and what
+  the near misses were
+
+</details>
+
+<details>
+<summary><b>14 writing tools</b></summary>
+
+<br>
+
+- `create_workout` — one workout, planned for later or completed with its sets
+- `bulk_create_workouts` — many at once, for importing history
+- `update_workout` — PATCH by id
+- `delete_workout` — permanent
+- `log_set` — append a set mid-session ("log 61 kg × 10 on squat"), adding the exercise if the
+  workout doesn't have it yet
+- `log_body_metric` — log or overwrite a measurement for a day
+- `log_nutrition` — log or overwrite a day's calories and macros
+- `create_plan` — a plan (mesocycle), made active
+- `adjust_plan` — PATCH by id; days keep their identity per `dayIndex`
+- `generate_workout` — run the deterministic generator from a plan day, explicit muscles, or the
+  freshest muscle group
+- `generate_week` — a week of sessions from the plan, on its weekday anchors
+- `create_exercise` — add something the catalog is missing
+- `update_exercise` — correct catalog metadata: load factor, whether a movement is timed
+- `add_exercise_alias` — map another app's name onto a catalog exercise
+
+</details>
+
+- Update tools are true PATCH: omitted fields stay unchanged.
+- Exercise references accept id, exact name, or alias.
+- Full catalog available as the `catalog://exercises` MCP resource.
+- Plan templates support per-exercise load, RIR, rest, per-side and seconds targets, weekday anchors, deload weeks.
+
+To preload an account from another app's export: put the export in `data/` (git-ignored),
+connect Claude, and ask it to map names (`resolve_exercise_names`, `add_exercise_alias`),
+import history (`bulk_create_workouts` with stable `externalId`s), and build a plan (`create_plan`).
+
+## Development
+
+Requires Node.js 22+.
+
+```bash
+npm install
+cp .env.example .env          # set SESSION_SECRET
+cp .env apps/server/.env
+npm run db:migrate            # creates SQLite db + seeds exercise catalog
+npm run dev                   # API on :3001, web on :5173
+```
+
+Windows PowerShell: use `Copy-Item` instead of `cp`.
+
+Open http://localhost:5173 and register.
+
+- Tests: `npm test` (unit + integration suite against a scratch SQLite db)
+- Refresh exercise catalog: `scripts/fetch-exercise-db.sh` (`.ps1` on Windows), then `npm run db:seed`
+- Layout: `apps/server` (Fastify + Prisma + SQLite), `apps/web` (Vue 3 + Vite, HUD theme), `packages/shared` (zod schemas)
+
+## Training modes
+
+The generator prescribes by mode (default in Settings; override per plan day or per generate call):
+
+| Mode | Reps (compound / isolation) | Load | Sets | Rest |
+|---|---|---|---|---|
+| strength | 3–6 / 6–10 | ~85–95% e1RM + warm-up ramp | 5 / 3 | 3:00 |
+| hypertrophy (default) | 6–10 / 10–15 | ~65–80% e1RM | 3 / 3 | 1:30 |
+| endurance | 15–20 / 15–25 | ~40–60% e1RM | 3 / 2 | 1:00 |
+| power | 3–5 (explosive compounds only) | ~50% e1RM, fast reps | 4 | 3:00 |
+
+Weights anchor to the [Epley e1RM estimate](https://en.wikipedia.org/wiki/One-repetition_maximum#Epley_formula)
+(`e1RM = weight × (1 + reps / 30)`). Within a mode: double progression
+(top of range on all sets → add load; 3 stalled sessions → −10% deload).
+Switching modes re-derives the weight from e1RM.
+
+## Notes
+
+- `data/` (personal exports) and `appdata/` (live database) are git-ignored.
+- Weights stored in kg; warm-up sets excluded from analytics.
+- **Styling origin** — the UI began from a purchased HUD ThemeForest template. Its code, assets,
+  attribution and naming have been removed; the stylesheets are Bootstrap 5 plus this app's own
+  partials, and the background and icons are generated here. What remains inherited is the look:
+  the accent palette and the spacing and radius values behind it.
+
+## Licence
+
+Overload is released under the [MIT licence](LICENSE).
+
+### Third-party
+
+| | | |
+|---|---|---|
+| [free-exercise-db](https://github.com/yuhonas/free-exercise-db) | exercise catalog and images in `apps/server/prisma/seed-data/` | [Unlicense](https://github.com/yuhonas/free-exercise-db/blob/main/LICENSE) (public domain) |
+| [Tabler Icons](https://github.com/tabler/tabler-icons) | the 32-glyph subset in `apps/web/src/assets/icons/` | MIT |
+| [Chakra Petch](https://fonts.google.com/specimen/Chakra+Petch) | UI typeface, self-hosted via `@fontsource` | SIL Open Font License 1.1 |
+| [Bootstrap](https://getbootstrap.com) | CSS framework | MIT |
+
+The exercise dataset originates with [Ollie Jennings](https://github.com/jhonnyx2012), whom
+free-exercise-db credits as its source. It is public domain and carries no attribution
+requirement; it is credited here because it is the larger part of this repository by size and
+none of it is our work.

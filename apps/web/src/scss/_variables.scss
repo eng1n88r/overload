@@ -1,0 +1,590 @@
+// Color system
+
+$white:        #FFFFFF !default;
+// Every grey in both modes derives from this. It was #617a86, a blue-grey, which
+// is what still tinted surfaces like .alert-secondary after the move to graphite.
+$gray-500:     #74787c !default;
+$gray-100:     mix(#fff, $gray-500, 60%) !default;
+$gray-200:     mix(#fff, $gray-500, 45%) !default;
+$gray-300:     mix(#fff, $gray-500, 30%) !default;
+$gray-400:     mix(#fff, $gray-500, 15%) !default;
+$gray-600:     mix(#000, $gray-500, 15%) !default;
+$gray-700:     mix(#000, $gray-500, 30%) !default;
+$gray-800:     mix(#000, $gray-500, 45%) !default;
+$gray-900:     mix(#000, $gray-500, 60%) !default;
+$yellow:       #f9e80d !default;
+$orange:       #ff9f0c !default;
+$aqua:         #0cfff5 !default;
+$blue:         #0271ff !default;
+$indigo:       #5c25ff !default;
+$purple:       #b90dff !default;
+$red:          #e00000 !default;
+$teal:         #249d79 !default;
+$green:        #148922 !default;
+$lime:         #50b00a !default;
+$pink:         #e61079 !default;
+$cyan:         #009be3 !default;
+$default:      $gray-400 !default;
+$dark:         $gray-800 !default;
+$black:        #000000 !default;
+$light:        $gray-100 !default;
+$primary:      $blue !default;
+$warning:      $orange !default;
+$danger:       $red !default;
+$success:      $teal !default;
+$info:         $cyan !default;
+$secondary:    $gray-400 !default;
+$text-muted:   $gray-400 !default;
+$inverse:      $black !default;
+$theme:        $teal !default;
+$theme-color:  $white !default;
+// Every colour here multiplies Bootstrap's colour-keyed utilities: .bg-*, .text-*,
+// .btn-*, .btn-outline-*, .border-*, .link-*, .text-bg-*, .list-group-item-*,
+// .alert-* and the focus rings, in both colour modes. It held 32 entries against
+// Bootstrap's 8. These are the ones the templates use plus the ones the accent
+// picker offers, which reads this map to build its list.
+$theme-colors: (
+	"theme":       $theme,
+	"primary":     $primary,
+	"secondary":   $secondary,
+	"warning":     $warning,
+	"danger":      $danger,
+	"success":     $success,
+	"inverse":     $inverse,
+	"info":        $info,
+	"dark":        $dark,
+	"white":       $white,
+	"purple":      $purple,
+	"indigo":      $indigo,
+	"red":         $red,
+	"pink":        $pink,
+	"green":       $green,
+	"yellow":      $yellow,
+	"teal":        $teal,
+  "lime":        $lime,
+	"gray-200":    $gray-200
+);
+
+$min-contrast-ratio:                            3 !default;
+
+$blue-100:                                      tint-color($blue, 80%) !default;
+$blue-200:                                      tint-color($blue, 60%) !default;
+$blue-300:                                      tint-color($blue, 40%) !default;
+$blue-600:                                      shade-color($blue, 20%) !default;
+$blue-700:                                      shade-color($blue, 40%) !default;
+$blue-900:                                      shade-color($blue, 80%) !default;
+
+
+$pink-300:                                      tint-color($pink, 40%) !default;
+
+$red-100:                                       tint-color($red, 80%) !default;
+$red-200:                                       tint-color($red, 60%) !default;
+$red-300:                                       tint-color($red, 40%) !default;
+$red-600:                                       shade-color($red, 20%) !default;
+$red-700:                                       shade-color($red, 40%) !default;
+$red-900:                                       shade-color($red, 80%) !default;
+
+
+$yellow-100:                                    tint-color($yellow, 80%) !default;
+$yellow-200:                                    tint-color($yellow, 60%) !default;
+$yellow-300:                                    tint-color($yellow, 40%) !default;
+$yellow-700:                                    shade-color($yellow, 40%) !default;
+$yellow-800:                                    shade-color($yellow, 60%) !default;
+$yellow-900:                                    shade-color($yellow, 80%) !default;
+
+$green-100:                                     tint-color($green, 80%) !default;
+$green-200:                                     tint-color($green, 60%) !default;
+$green-300:                                     tint-color($green, 40%) !default;
+$green-600:                                     shade-color($green, 20%) !default;
+$green-700:                                     shade-color($green, 40%) !default;
+$green-900:                                     shade-color($green, 80%) !default;
+
+
+$cyan-100:                                      tint-color($cyan, 80%) !default;
+$cyan-200:                                      tint-color($cyan, 60%) !default;
+$cyan-300:                                      tint-color($cyan, 40%) !default;
+$cyan-700:                                      shade-color($cyan, 40%) !default;
+$cyan-800:                                      shade-color($cyan, 60%) !default;
+$cyan-900:                                            shade-color($cyan, 80%) !default;
+
+$primary-text:                                  $blue-600 !default;
+$secondary-text:                                $gray-600 !default;
+$success-text:                                  $green-600 !default;
+$info-text:                                     $cyan-700 !default;
+$warning-text:                                  $yellow-700 !default;
+$danger-text:                                   $red-600 !default;
+$light-text:                                    $gray-600 !default;
+$dark-text:                                     $gray-700 !default;
+
+$primary-bg-subtle:                             $blue-100 !default;
+$secondary-bg-subtle:                           $gray-100 !default;
+$success-bg-subtle:                             $green-100 !default;
+$info-bg-subtle:                                $cyan-100 !default;
+$warning-bg-subtle:                             $yellow-100 !default;
+$danger-bg-subtle:                              $red-100 !default;
+
+$primary-border-subtle:                         $blue-200 !default;
+$secondary-border-subtle:                       $gray-200 !default;
+$success-border-subtle:                         $green-200 !default;
+$info-border-subtle:                            $cyan-200 !default;
+$warning-border-subtle:                         $yellow-200 !default;
+$danger-border-subtle:                          $red-200 !default;
+
+
+// Options toggle setting (shadow, caret, negative margin, color mode)
+
+$enable-negative-margins:                       true !default;
+
+
+// Variable prefix setting
+
+$prefix:                                        bs- !default;
+
+
+// Body setting
+
+$body-bg-gradient:                              linear-gradient(180deg, rgba($white,.90) 0%, rgba($white,.99) 100%) !default;
+// Drawn rather than photographed. The template shipped a stock cover jpg plus a
+// tiled png here; both are gradients in disguise once the wash above them lands,
+// so they cost 5 MB of licensed imagery to say very little.
+$body-bg-cover:                                 radial-gradient(52% 42% at 50% 40%, rgba(120,150,175,.08) 0%, rgba(120,150,175,.03) 55%, rgba(255,255,255,0) 100%) !default;
+// One dot per tile, matching the near-invisible mark the png actually carried.
+$body-bg-image:                                  url('../assets/background/honeycomb-light.svg') !default;
+$body-bg-image-size:                             144px 84px !default;
+// Chakra Petch is already condensed; the template's extra 0.75px of tracking on
+// top of it broke up word shapes at 14px, which is most of why the UI read as
+// hard work.
+$body-letter-spacing:                           normal !default;
+$body-color:                                    rgba($black, .75) !default;
+$body-font-weight:                              400 !default;
+$body-secondary-bg:                             $gray-100 !default;
+$body-tertiary-bg:                              rgba($body-color, .1) !default;
+$emphasis-color:                                $black !default;
+
+
+// Spacer setting
+
+$spacer:                                        rem-default(16px) !default;
+$spacers: (
+  0: 0,
+  1: $spacer * .25,
+  2: $spacer * .5,
+  3: $spacer,
+  4: $spacer * 1.5,
+  5: $spacer * 3,
+) !default;
+
+
+// Self-hosted from @fontsource, imported in main.ts. The template named this
+// face but shipped the import in a file nothing loaded, so it never arrived.
+$font-family-base:                              'Chakra Petch', sans-serif !default;
+$font-size-base:                                .875rem !default;
+$font-size-sm:                                  .8125rem !default;
+$font-size-lg:                                 	1rem !default;
+$font-weight-semibold:                          500 !default;
+$font-weight-bold:                              600 !default;
+$font-weight-base:                              400 !default;
+$headings-font-weight:                          $font-weight-bold !default;
+$headings-color:                                $black !default;
+$text-muted:                                    var(--#{$prefix}secondary-color) !default;
+
+
+// Grid settings
+
+$grid-gutter-width:                             20px !default;
+$grid-breakpoints: (
+	xs: 0,
+	sm: 576px,
+	md: 768px,
+	lg: 992px,
+	xl: 1200px,
+	xxl: 1660px,
+  xxxl: 1900px
+) !default;
+$container-max-widths: (
+  sm: 540px,
+  md: 720px,
+  lg: 960px,
+  xl: 1140px,
+  xxl: 1320px
+) !default;
+
+
+// Component border settings
+
+$border-widths: (
+  1: 1px,
+  2: 2px,
+  3: 3px,
+  4: 4px,
+  5: 5px
+) !default;
+$border-color:                                  rgba($black, .2) !default;
+$border-color-translucent:                      rgba($black, .1) !default;
+
+
+// Component border-radius settings
+
+$border-radius:                                 4px !default;
+$border-radius-lg:                              8px !default;
+$border-radius-sm:                              2px !default;
+$border-radius-2xl:                             2rem !default;
+
+
+// Component box-shadow settings
+
+$box-shadow:                                    0 .5rem 1rem rgba(var(--#{$prefix}inverse-rgb), .075) !default;
+$box-shadow-sm:                                 0 .125rem .25rem rgba(var(--#{$prefix}inverse-rgb), .035) !default;
+$box-shadow-lg:                                 0 1rem 3rem rgba(var(--#{$prefix}inverse-rgb), .175) !default;
+$box-shadow-inset:                              inset 0 1px 2px rgba(var(--#{$prefix}inverse-rgb), .075) !default;
+
+
+// Component color settings
+
+$component-bg:                                  $white !default;
+$component-color:                               $body-color !default;
+$component-active-color:                        $theme-color !default;
+$component-active-bg:                           $theme !default;
+
+
+// Component ratio settings
+
+$aspect-ratios: (
+  "1x1": 100%,
+  "4x3": calc(3 / 4 * 100%),
+  "16x9": calc(9 / 16 * 100%),
+  "21x9": calc(9 / 21 * 100%)
+) !default;
+
+
+// App - Header settings
+
+$app-header-height:                             rem(52px) !default;
+$app-header-bg:                                 $white !default;
+$app-header-zindex:                             1020 !default;
+$app-header-search-max-width:                   rem(967px) !default;
+$app-header-padding-x:                          $spacer * .25 !default;
+$app-header-padding-y:                          $spacer * .25 !default;
+$app-header-brand-color:                        #252525 !default;
+$app-header-link-color:                         $black !default;
+$app-header-link-hover-color:                   $black !default;
+$app-header-scroll-box-shadow:                  null !default;
+
+
+// App - Sidebar settings
+      
+$app-sidebar-width:                             rem(270px) !default;
+$app-sidebar-menu-header-color:                 rgba(var(--#{$prefix}inverse-rgb), .3) !default;
+$app-sidebar-menu-link-color:                   rgba(var(--#{$prefix}inverse-rgb), .5) !default;
+$app-sidebar-menu-link-hover-color:             $black !default;
+$app-sidebar-menu-link-active-color:            $black !default;
+$app-sidebar-menu-link-icon-active-color:       var(--#{$prefix}theme) !default;
+$app-sidebar-zindex:                            $app-header-zindex - 10 !default;
+$app-sidebar-mobile-zindex:                     $app-header-zindex + 10 !default;
+$app-sidebar-mobile-bg:                         rgba(255, 255, 255, .98) !default;
+$app-sidebar-mobile-backdrop-zindex:            $app-sidebar-mobile-zindex - 10 !default;
+$app-sidebar-mobile-backdrop-bg:                rgba($black, .25) !default;
+
+
+// App - Content settings
+
+$app-content-padding-y:                         $spacer * 2;
+$app-content-padding-x:                         $spacer * 2;
+$app-content-sm-padding-y:                      $spacer;
+$app-content-sm-padding-x:                      $spacer;
+
+
+// App - Pos system settings
+
+$pos-booking-header-height:                     rem(52px) !default;
+$pos-counter-header-height:                     rem(52px) !default;
+$pos-kitchen-header-height:                     rem(52px) !default;
+$pos-stock-header-height:                       rem(52px) !default;
+$pos-sidebar-menu-width:                        140px !default;
+$pos-sidebar-desktop-width:                     360px !default;
+$pos-bg:                                        $gray-200 !default;
+$pos-bg-dark-mode:                              shade-color($gray-900, 30%) !default;
+
+
+// Link settings
+
+$link-color:                                    $theme !default;
+$link-hover-color:                              rgba($theme, .5) !default;
+
+
+// Alerts settings
+
+$alert-border-radius:                           $border-radius !default;
+
+
+// Breadcrumbs settings
+
+$breadcrumb-font-size:                          85% !default;
+
+
+// Progress bars settings
+
+$progress-bg:                                   rgba(var(--#{$prefix}inverse-rgb), .15) !default;
+
+
+// Buttons + Forms settings
+
+$input-btn-focus-width:                         .25rem !default;
+$input-btn-focus-color-opacity:                 .25 !default;
+$input-btn-focus-color:                         rgba(var(--#{$prefix}inverse-rgb), $input-btn-focus-color-opacity) !default;
+$input-btn-focus-blur:                          0 !default;
+$input-btn-focus-box-shadow:                    0 0 $input-btn-focus-blur $input-btn-focus-width $input-btn-focus-color !default;
+$input-btn-border-width:                        var(--#{$prefix}border-width) !default;
+
+
+// Buttons settings
+
+$btn-border-radius:                             $border-radius !default;
+$btn-border-radius-sm:                          $border-radius-sm !default;
+$btn-border-radius-lg:                          $border-radius-lg !default;
+
+
+// Button close settings
+
+$btn-close-color:                               $black !default;
+$btn-close-bg:                                  url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='#{$btn-close-color}'><path d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/></svg>") !default;
+$btn-close-focus-shadow:                        $input-btn-focus-box-shadow !default;
+
+
+// Forms settings
+
+$form-text-color:                               $text-muted !default;
+$input-bg:                                      transparent !default;
+$input-disabled-bg:                             var(--#{$prefix}form-control-disabled-bg) !default;
+$input-border-width:                            $input-btn-border-width !default;
+$input-box-shadow:                              $box-shadow-inset !default;
+$input-border-radius:                           $border-radius !default;
+$input-border-radius-sm:                        $border-radius-sm !default;
+$input-border-radius-lg:                        $border-radius-lg !default;
+$input-focus-border-color:                      rgba(var(--#{$prefix}inverse-rgb), .5) !default;
+$input-focus-width:                             $input-btn-focus-width !default;
+$input-focus-box-shadow:                        $input-btn-focus-box-shadow !default;
+$input-placeholder-color:                       rgba(var(--#{$prefix}body-color-rgb), .5) !default;
+$input-height-border:                           calc($input-border-width * 2) !default; // stylelint-disable-line function-disallowed-list
+
+
+// Form check settings
+
+$form-check-input-width:                        1.3em !default;
+$form-check-min-height:                         1.3em !default;
+$form-check-input-focus-box-shadow:             $input-btn-focus-box-shadow !default;
+
+
+// Form switch settings
+
+$form-switch-width:                             2.3em !default;
+$form-switch-focus-color:                       tint-color($black, 50%) !default;
+
+
+// Form select settings
+
+$form-select-box-shadow:                        $box-shadow-inset !default;
+
+
+// Form range settings
+
+$form-range-track-bg:                           rgba(var(--#{$prefix}inverse-rgb), .1) !default;
+$form-range-track-box-shadow:                   $box-shadow-inset !default;
+$form-range-thumb-bg:                           var(--#{$prefix}theme) !default;
+$form-range-thumb-focus-box-shadow:             0 0 0 1px transparent, $input-focus-box-shadow !default;
+$form-range-thumb-active-bg:                    rgba(var(--#{$prefix}theme-rgb), .75) !default;
+
+
+// Form file settings
+
+$form-file-button-hover-bg:                     var(--#{$prefix}border-color) !default;
+
+
+// Form Floating settings
+
+$form-floating-label-height:                    1.875em !default;
+
+
+// Form validation settings
+
+$form-feedback-valid-color:                     $success !default;
+$form-feedback-invalid-color:                   $danger !default;
+$form-feedback-icon-valid-color:                $form-feedback-valid-color !default;
+$form-feedback-icon-valid:                      url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path fill='#{$form-feedback-icon-valid-color}' d='M2.3 6.73.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/></svg>") !default;
+$form-feedback-icon-invalid-color:              $form-feedback-invalid-color !default;
+$form-feedback-icon-invalid:                    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='#{$form-feedback-icon-invalid-color}'><circle cx='6' cy='6' r='4.5'/><path stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/><circle cx='6' cy='8.2' r='.6' fill='#{$form-feedback-icon-invalid-color}' stroke='none'/></svg>") !default;
+$form-validation-states: (
+  "valid": (
+    "color":            var(--#{$prefix}success-text),
+    "icon":             $form-feedback-icon-valid,
+    "tooltip-color":    #fff,
+    "tooltip-bg-color": var(--#{$prefix}success),
+    "focus-box-shadow": 0 0 $input-btn-focus-blur $input-focus-width rgba(var(--#{$prefix}success-rgb), $input-btn-focus-color-opacity),
+    "border-color":     var(--#{$prefix}success),
+  ),
+  "invalid": (
+    "color":            var(--#{$prefix}danger-text),
+    "icon":             $form-feedback-icon-invalid,
+    "tooltip-color":    #fff,
+    "tooltip-bg-color": var(--#{$prefix}danger),
+    "focus-box-shadow": 0 0 $input-btn-focus-blur $input-focus-width rgba(var(--#{$prefix}danger-rgb), $input-btn-focus-color-opacity),
+    "border-color":     var(--#{$prefix}danger),
+  )
+) !default;
+
+
+// Cards settings
+
+$card-bg:                                       transparent !default;
+
+
+// Tooltips settings
+
+$tooltip-bg:                                    var(--#{$prefix}inverse) !default;
+
+
+// Popovers
+
+$popover-border-width:                          var(--#{$prefix}border-width) !default;
+$popover-border-radius:                         var(--#{$prefix}border-radius-lg) !default;
+$popover-inner-border-radius:                   calc($popover-border-radius - $popover-border-width) !default; // stylelint-disable-line function-disallowed-list
+$popover-box-shadow:                            $box-shadow !default;
+
+
+// Modals settings
+
+$modal-content-color:                           null !default;
+$modal-content-bg:                              var(--#{$prefix}app-header-bg) !default;
+$modal-content-border-radius:                   0 !default;
+$modal-content-inner-border-radius:             0 !default;
+$modal-content-box-shadow-xs:                   $box-shadow-sm !default;
+$modal-content-box-shadow-sm-up:                $box-shadow !default;
+$modal-backdrop-bg:                             #e6e6e6 !default;
+$modal-backdrop-opacity:                        .95 !default;
+
+
+// Offcanvas
+
+$offcanvas-backdrop-bg:                         var(--#{$prefix}body-bg) !default;
+
+
+// Accordion settings
+
+$accordion-button-active-bg:                    rgba(var(--#{$prefix}theme-rgb), .15) !default;
+$accordion-button-active-color:                 var(--#{$prefix}inverse) !default;
+$accordion-icon-color:                          $body-color !default;
+$accordion-icon-active-color:                   $body-color !default;
+$accordion-button-icon:                         url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='#{$accordion-icon-color}'><path fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/></svg>") !default;
+$accordion-button-active-icon:                  url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='#{$accordion-icon-active-color}'><path fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/></svg>") !default;
+
+
+// Tables settings
+
+$table-color:                                   var(--#{$prefix}body-color) !default;
+$table-bg:                                      transparent !default;
+$table-striped-bg-factor:                       .1 !default;
+$table-striped-bg:                              rgba(var(--#{$prefix}inverse-rgb), $table-striped-bg-factor) !default;
+$table-active-bg-factor:                        .1 !default;
+$table-active-bg:                               rgba(var(--#{$prefix}inverse-rgb), $table-active-bg-factor) !default;
+$table-hover-bg-factor:                         .075 !default;
+$table-hover-bg:                                rgba(var(--#{$prefix}inverse-rgb), $table-hover-bg-factor) !default;
+$table-border-factor:                           .1 !default;
+$table-caption-color:                           $text-muted !default;
+$table-bg-scale:                                -80% !default;
+$table-variants: (
+  "primary":    shift-color($primary, $table-bg-scale),
+  "secondary":  shift-color($secondary, $table-bg-scale),
+  "success":    shift-color($success, $table-bg-scale),
+  "info":       shift-color($info, $table-bg-scale),
+  "warning":    shift-color($warning, $table-bg-scale),
+  "danger":     shift-color($danger, $table-bg-scale),
+  "light":      $light,
+  "dark":       $dark,
+) !default;
+
+
+// Dropdown settings
+
+$dropdown-bg:                                   rgba(var(--#{$prefix}body-bg-rgb), .98) !default;
+$dropdown-border-radius:                        0 !default;
+$dropdown-border-width:                         var(--#{$prefix}border-width) !default;
+$dropdown-inner-border-radius:                  calc($dropdown-border-radius - $dropdown-border-width) !default; // stylelint-disable-line function-disallowed-list
+$dropdown-box-shadow:                           $box-shadow !default;
+$dropdown-link-hover-bg:                        rgba(var(--#{$prefix}body-color-rgb), .15) !default;
+$dropdown-link-disabled-color:                  $gray-500 !default;
+$dropdown-item-padding-y:                       rem(6px) !default;
+$dropdown-header-color:                         rgba(var(--#{$prefix}body-color-rgb), .5) !default;
+
+
+// List group settings
+
+$list-group-bg:                                 transparent !default;
+$list-group-action-hover-color:                 var(--#{$prefix}inverse) !default;
+
+
+// Nav settings
+
+$nav-tabs-link-active-color:                    var(--#{$prefix}inverse) !default;
+$nav-tabs-link-active-bg:                       transparent !default;
+$nav-pills-border-radius:                       $border-radius !default;
+
+
+// Navbar settings
+
+$navbar-light-color:                            rgba(var(--#{$prefix}inverse-rgb), .65) !default;
+$navbar-light-hover-color:                      rgba(var(--#{$prefix}inverse-rgb), .8) !default;
+$navbar-light-active-color:                     rgba(var(--#{$prefix}inverse-rgb), 1) !default;
+$navbar-light-disabled-color:                   rgba(var(--#{$prefix}inverse-rgb), .3) !default;
+$navbar-light-toggler-icon-bg:                  url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path stroke='#{rgba($body-color, .75)}' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/></svg>") !default;
+$navbar-light-toggler-border-color:             rgba(var(--#{$prefix}inverse-rgb), .15) !default;
+
+
+// Pagination settings
+
+$pagination-color:                              var(--#{$prefix}inverse) !default;
+$pagination-bg:                                 transparent !default;
+$pagination-border-width:                       var(--#{$prefix}border-width) !default;
+$pagination-margin-start:                       calc($pagination-border-width * -1) !default; // stylelint-disable-line function-disallowed-list
+$pagination-focus-box-shadow:                   $input-btn-focus-box-shadow !default;
+$pagination-hover-color:                        var(--#{$prefix}inverse) !default;
+$pagination-hover-bg:                           rgba(var(--#{$prefix}inverse-rgb), .1) !default;
+$pagination-active-color:                       var(--#{$prefix}theme-color) !default;
+$pagination-active-bg:                          var(--#{$prefix}theme) !default;
+$pagination-active-border-color:                var(--#{$prefix}theme) !default;
+$pagination-disabled-color:                     rgba(var(--#{$prefix}inverse-rgb), .35) !default;
+$pagination-disabled-bg:                        rgba(var(--#{$prefix}inverse-rgb), .1) !default;
+$pagination-border-radius-sm:                   $border-radius-sm !default;
+$pagination-border-radius-lg:                   $border-radius-lg !default;
+
+
+// Z-index settings
+
+$zindex-tooltip:                                1130 !default;
+$zindex-levels: (
+  n1: -1,
+  0: 0,
+  1: 1,
+  2: 2,
+  3: 3
+) !default;
+
+
+// Badges settings
+
+$badge-border-radius:                           $border-radius !default;
+
+
+// Position settings
+
+$position-values: (
+  0: 0,
+  50: 50%,
+  100: 100%
+) !default;
+
+
+// Carousel settings
+
+$carousel-control-color:                        $white !default;
+$carousel-control-prev-icon-bg:                 url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='#{$carousel-control-color}'><path d='M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z'/></svg>") !default;
+$carousel-control-next-icon-bg:                 url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='#{$carousel-control-color}'><path d='M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z'/></svg>") !default;

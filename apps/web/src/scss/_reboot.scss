@@ -1,0 +1,72 @@
+html {
+	height: 100%;
+	background-color: var(--#{$prefix}body-bg);
+	// Only ever visible in the iOS rubber-band overscroll gutter; the backdrop
+	// below covers the viewport itself.
+	background-image: var(--#{$prefix}body-bg-gradient);
+
+	// One backdrop layer, not three.
+	//
+	// The template stacked three full-viewport `position: fixed` pseudo-elements
+	// at negative z-indexes -- an opaque fill plus radial glow, a linear
+	// gradient, and the repeating honeycomb. iOS Safari composites each fixed
+	// layer separately and re-rasterizes all of them on pinch zoom, so three
+	// viewport-sized layers (one of them a tiled image) could exhaust the tab's
+	// memory and get it killed: "A problem repeatedly occurred". WebKit 172206
+	// names this exact combination -- position:fixed, tiled backgrounds,
+	// negative z-index. Three background layers on one element paint the same
+	// picture for a third of the layer memory.
+	//
+	// Order is topmost-first, matching the old paint order: honeycomb over
+	// gradient over glow, with the opaque fill behind all of it.
+	&:before {
+		content: '';
+		position: fixed;
+		inset: 0;
+		z-index: -1;
+		background-color: var(--#{$prefix}body-bg);
+		background-image:
+			var(--#{$prefix}body-bg-image),
+			var(--#{$prefix}body-bg-gradient),
+			var(--#{$prefix}body-bg-cover);
+		// The honeycomb variable carries both dimensions: the tile is 144 x 84,
+		// and an omitted height would be derived from an SVG that has no fixed
+		// ratio. The two gradients have no intrinsic size, so cover fills them.
+		background-size: var(--#{$prefix}body-bg-image-size), cover, cover;
+		background-repeat: repeat, no-repeat, no-repeat;
+		background-position: center, center, center;
+		// Only the fill can animate -- transitioning the `background` shorthand
+		// marked the images too, which just re-rasterizes the layer for nothing.
+		transition: background-color .2s linear;
+	}
+}
+body {
+	background: none;
+	font-weight: var(--#{$prefix}body-font-weight);
+	letter-spacing: var(--#{$prefix}body-letter-spacing);
+	position: relative;
+	min-height: 100vh;
+	z-index: 9999;
+
+	&:not(.app-init) * {
+		transition: none !important;
+		animation: none !important;
+	}
+}
+// Mobile zoom fixes (iOS Safari):
+// 1. touch-action: manipulation disables double-tap-to-zoom on interactive
+//    elements (rapid taps on steppers / toggles were zooming the page) while
+//    keeping pinch-zoom and scrolling intact.
+a, button, input, select, textarea, label {
+	touch-action: manipulation;
+}
+
+// 2. iOS force-zooms the page when a focused input's font-size is under 16px;
+//    the theme's 14px base (and 13px -sm controls) triggers it on every field.
+//    Bump form controls to 16px on phones so focusing never zooms.
+@include media-breakpoint-down(md) {
+	.form-control,
+	.form-select {
+		font-size: 16px;
+	}
+}

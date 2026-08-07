@@ -1,0 +1,108 @@
+// Panels have no fill of their own ($card-bg is transparent) -- the frame is
+// the panel. Two inset rules run top and bottom, two more run left and right,
+// and each corner carries a bracket.
+//
+// The brackets used to hang off four empty divs inside every single card. They
+// are background layers on the card now, so the markup carries none of it, and
+// they are drawn in the accent colour rather than a dimmed border grey. That is
+// the distinction: the template's corners were a quieter shade of the frame,
+// and these are the one place the panel picks up the theme, so they follow the
+// accent picker instead of sitting inert.
+$card-frame-inset: rem(15px);
+$card-bracket-arm: rem(10px);
+$card-tick-weight: 2px;
+$card-frame-color: rgba(var(--#{$prefix}border-color-rgb), .3);
+$card-tick-color: var(--#{$prefix}theme);
+
+.card-expand {
+	& .app-content {
+		z-index: $app-header-zindex + 100;
+		position: relative;
+		height: calc(100vh - #{$app-header-height});
+		overflow: hidden;
+	}
+}
+.card {
+	--#{$prefix}border-color-rgb: var(--#{$prefix}body-color-rgb);
+
+	position: relative;
+	border: none;
+
+	&.border-theme {
+		--#{$prefix}border-color-rgb: var(--#{$prefix}theme-rgb);
+	}
+	&.card-expand {
+		position: fixed;
+		top: 0;
+		inset-inline-start: 0;
+		inset-inline-end: 0;
+		bottom: 0;
+		z-index: $app-header-zindex + 100;
+		border-radius: 0;
+		margin: 0 !important;
+		// The ticks sit in the padding box, so this insets them to match the
+		// frame without needing positions of their own.
+		padding: rem(5px);
+		background-color: var(--#{$prefix}app-header-bg);
+
+		&:not(.border-0):before {
+			top: rem(5px);
+			bottom: rem(5px);
+			inset-inline-start: $card-frame-inset + rem(5px);
+			inset-inline-end: $card-frame-inset + rem(5px);
+		}
+		&:not(.border-0):after {
+			top: $card-frame-inset + rem(5px);
+			bottom: $card-frame-inset + rem(5px);
+			inset-inline-start: rem(5px);
+			inset-inline-end: rem(5px);
+		}
+	}
+
+	&:before,
+	&:after {
+		content: '';
+		position: absolute;
+	}
+	&:not(.border-0):before {
+		inset-inline-start: $card-frame-inset;
+		inset-inline-end: $card-frame-inset;
+		top: 0;
+		bottom: 0;
+		border-top: $border-width solid $card-frame-color;
+		border-bottom: $border-width solid $card-frame-color;
+	}
+	&:not(.border-0):after {
+		top: $card-frame-inset;
+		bottom: $card-frame-inset;
+		inset-inline-start: 0;
+		inset-inline-end: 0;
+		border-inline-start: $border-width solid $card-frame-color;
+		border-inline-end: $border-width solid $card-frame-color;
+	}
+
+	// Two strokes per corner, eight layers, one per stroke.
+	&:not(.border-0) {
+		background-image:
+			linear-gradient($card-tick-color 0 0), linear-gradient($card-tick-color 0 0),
+			linear-gradient($card-tick-color 0 0), linear-gradient($card-tick-color 0 0),
+			linear-gradient($card-tick-color 0 0), linear-gradient($card-tick-color 0 0),
+			linear-gradient($card-tick-color 0 0), linear-gradient($card-tick-color 0 0);
+		background-repeat: no-repeat;
+		background-size:
+			$card-bracket-arm $card-tick-weight, $card-tick-weight $card-bracket-arm,
+			$card-bracket-arm $card-tick-weight, $card-tick-weight $card-bracket-arm,
+			$card-bracket-arm $card-tick-weight, $card-tick-weight $card-bracket-arm,
+			$card-bracket-arm $card-tick-weight, $card-tick-weight $card-bracket-arm;
+		background-position:
+			left top, left top,
+			right top, right top,
+			left bottom, left bottom,
+			right bottom, right bottom;
+	}
+
+	& > *:not(.card-img-overlay):not(.card-img) {
+		position: relative;
+		z-index: 10;
+	}
+}

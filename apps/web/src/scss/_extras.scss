@@ -1,0 +1,192 @@
+/* Helper Margin */
+.top-auto { top: auto !important; }
+.bottom-auto { bottom: auto !important; }
+.start-auto {
+	left: auto !important; 
+}
+.end-auto {
+	right: auto !important; 
+}
+.start-0 {
+	left: 0 !important; 
+}
+.end-0 {
+	right: 0 !important; 
+}
+.float-end {
+	float: right !important;
+}
+.float-start {
+	float: left !important;
+}
+@include spacing('', 'margin', 'm');
+@include spacing('top', 'margin', 'mt');
+@include spacing('end', 'margin', 'me');
+@include spacing('bottom', 'margin', 'mb');
+@include spacing('start', 'margin', 'ms');
+@include spacing('mx', 'margin', 'mx');
+@include spacing('my', 'margin', 'my');
+
+/* Helper Padding */
+@include spacing('', 'padding', 'p');
+@include spacing('top', 'padding', 'pt');
+@include spacing('end', 'padding', 'pe');
+@include spacing('bottom', 'padding', 'pb');
+@include spacing('start', 'padding', 'ps');
+@include spacing('px', 'padding', 'px');
+@include spacing('py', 'padding', 'py');
+
+/* Helper Font */
+@include font-size(0, 80);
+@include font-weight(1, 8);
+
+/* Helper Position Direction */
+.top-0 { top: 0 !important; }
+.bottom-0 { bottom: 0 !important; }
+.start-0 { inset-inline-start: 0 !important; }
+.end-0 { inset-inline-end: 0 !important; }
+.top-auto { top: auto !important; }
+.bottom-auto { bottom: auto !important; }
+.start-auto { inset-inline-start: auto !important; }
+.end-auto { inset-inline-end: auto !important; }
+
+/* Helper Size */
+@include size('w', 'width');
+@include size('h', 'height');
+
+/* Helper Color */
+@each $color, $value in $theme-colors {
+	@include color-variants($color, $value);
+}
+@each $color, $value in $colors {
+	@include color-variants($color, $value);
+}
+
+/* Helper Background */
+@if $enable-dark-mode {
+	@include color-mode(dark, true) {
+		@each $color, $value in $theme-colors-dark {
+			& {
+				--#{$prefix}#{$color}: #{$value};
+				--#{$prefix}#{$color}-rgb: #{to-rgb($value)};
+			}
+			
+			@include color-variants-dark($color, $value);
+		}
+	}
+}
+.bg-none { background: none !important; }
+
+/* Helper Opacity */
+@include opacity(0, 10);
+
+/* Helper Theme */
+.list-group-item.active,
+.page-item.active .page-link,
+.form-check-input:checked,
+.nav-pills .nav-link.active, 
+.nav-pills .show>.nav-link {
+	background-color: var(--#{$prefix}theme);
+	border-color: var(--#{$prefix}theme);
+}
+// Bootstrap compiles .btn-theme / .btn-outline-theme variants with the default
+// teal baked into their --#{$prefix}btn-* custom properties. Rules derived from
+// those vars (e.g. .btn-check + .btn:hover resetting an unchecked toggle) would
+// otherwise flash the compiled color after a runtime theme switch, so point the
+// vars at the live theme instead.
+.btn-theme {
+	--#{$prefix}btn-color: var(--#{$prefix}theme-color);
+	--#{$prefix}btn-bg: var(--#{$prefix}theme);
+	--#{$prefix}btn-border-color: var(--#{$prefix}theme);
+	--#{$prefix}btn-hover-color: var(--#{$prefix}theme-color);
+	--#{$prefix}btn-hover-bg: var(--#{$prefix}theme);
+	--#{$prefix}btn-hover-border-color: var(--#{$prefix}theme);
+	--#{$prefix}btn-active-color: var(--#{$prefix}theme-color);
+	--#{$prefix}btn-active-bg: var(--#{$prefix}theme);
+	--#{$prefix}btn-active-border-color: var(--#{$prefix}theme);
+	--#{$prefix}btn-disabled-color: var(--#{$prefix}theme-color);
+	--#{$prefix}btn-disabled-bg: var(--#{$prefix}theme);
+	--#{$prefix}btn-disabled-border-color: var(--#{$prefix}theme);
+	--#{$prefix}btn-focus-shadow-rgb: var(--#{$prefix}theme-rgb);
+	background-color: var(--#{$prefix}theme);
+	border-color: var(--#{$prefix}theme);
+	position: relative;
+	
+	&:before {
+		content: '';
+		position: absolute;
+		top: -1px;
+		inset-inline-start: -1px;
+		inset-inline-end: -1px;
+		bottom: -1px;
+		
+		border-radius: $border-radius;
+		@include transition($btn-transition);
+	}
+	&.disabled,
+	&:disabled {
+		background-color: var(--#{$prefix}theme);
+		border-color: var(--#{$prefix}theme);
+	}
+	&:hover,
+	&:focus,
+	&:active,
+	&.active {
+		background-color: var(--#{$prefix}theme);
+		border-color: var(--#{$prefix}theme);
+		
+		&:before {
+			background: rgba($white, .2);
+		}
+	}
+	&:focus,
+	&:active,
+	&.active:focus, 
+	&:active:focus {
+		@include box-shadow(0 0 0 0.25rem rgba(#{var(--#{$prefix}theme-rgb)}, .5));
+	}
+}
+.btn-outline-theme {
+	--#{$prefix}btn-color: var(--#{$prefix}theme);
+	--#{$prefix}btn-bg: transparent;
+	--#{$prefix}btn-border-color: var(--#{$prefix}theme);
+	--#{$prefix}btn-hover-color: var(--#{$prefix}theme-color);
+	--#{$prefix}btn-hover-bg: var(--#{$prefix}theme);
+	--#{$prefix}btn-hover-border-color: var(--#{$prefix}theme);
+	--#{$prefix}btn-active-color: var(--#{$prefix}theme-color);
+	--#{$prefix}btn-active-bg: var(--#{$prefix}theme);
+	--#{$prefix}btn-active-border-color: var(--#{$prefix}theme);
+	--#{$prefix}btn-focus-shadow-rgb: var(--#{$prefix}theme-rgb);
+	color: var(--#{$prefix}theme);
+	border-color: var(--#{$prefix}theme);
+
+	&:hover,
+	&.active {
+		background-color: var(--#{$prefix}theme);
+		border-color: var(--#{$prefix}theme);
+	}
+	// radio/checkbox button groups (.btn-check) must follow the runtime
+	// theme color too, not the compiled default
+	.btn-check:checked + & {
+		background-color: var(--#{$prefix}theme);
+		border-color: var(--#{$prefix}theme);
+		color: var(--#{$prefix}theme-color);
+	}
+	&.disabled,
+	&:disabled {
+		color: var(--#{$prefix}theme);
+	}
+	&:focus,
+	&:active,
+	&.active:focus, 
+	&:active:focus {
+		@include box-shadow(0 0 0 0.25rem rgba(#{var(--#{$prefix}theme-rgb)}, .5));
+	}
+}
+.nav-link {
+	color: var(--#{$prefix}theme);
+	
+	&:hover {
+		color: rgba(#{var(--#{$prefix}theme-rgb)}, .5);
+	}
+}

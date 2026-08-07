@@ -1,0 +1,48 @@
+@import '_functions.scss';
+@import '_variables.scss';
+@import '_variables-dark.scss';
+@import 'bootstrap/scss/functions';
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/maps';
+@import 'bootstrap/scss/mixins';
+@import 'bootstrap/scss/utilities';
+@import '_utilities.scss';
+@import 'bootstrap/scss/utilities/api';
+// Bootstrap component by component rather than the whole bundle. Eleven of its
+// components are not used anywhere in this app and were being shipped anyway;
+// each one is a comment away from coming back.
+@import 'bootstrap/scss/root';
+@import 'bootstrap/scss/reboot';
+@import 'bootstrap/scss/type';
+@import 'bootstrap/scss/images';
+@import 'bootstrap/scss/containers';
+@import 'bootstrap/scss/grid';
+@import 'bootstrap/scss/tables';
+@import 'bootstrap/scss/forms';
+@import 'bootstrap/scss/buttons';
+@import 'bootstrap/scss/transitions';
+@import 'bootstrap/scss/dropdown';
+@import 'bootstrap/scss/button-group';
+@import 'bootstrap/scss/card';
+@import 'bootstrap/scss/badge';
+@import 'bootstrap/scss/alert';
+@import 'bootstrap/scss/progress';
+@import 'bootstrap/scss/list-group';
+@import 'bootstrap/scss/close';
+@import 'bootstrap/scss/modal';
+@import 'bootstrap/scss/tooltip';
+@import 'bootstrap/scss/helpers';
+// not imported: accordion, breadcrumb, carousel, nav, navbar, offcanvas,
+// pagination, placeholders, popover, spinners, toasts
+@import '_mixins.scss';
+
+@import '_root.scss';
+@import '_reboot.scss';
+@import '_extras.scss';
+
+@import '_app.scss';
+@import '_layout.scss';
+@import '_ui.scss';
+@import '_plugins.scss';
+@import '_pages.scss';
+

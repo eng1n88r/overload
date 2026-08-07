@@ -1,0 +1,22 @@
+{
+  "name": "overload",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"npm run dev -w @overload/server\" \"npm run dev -w @overload/web\"",
+    "build": "npm run build -w @overload/shared && npm run build -w @overload/server && npm run build -w @overload/web",
+    "test": "npm run test -w @overload/server && npm run test:unit -w @overload/web -- --run",
+    "db:migrate": "npm run db:migrate -w @overload/server",
+    "db:seed": "npm run db:seed -w @overload/server"
+  },
+  "devDependencies": {
+    "@tabler/icons-webfont": "^3.46.0",
+    "concurrently": "^9.1.2",
+    "subset-font": "^2.5.0"
+  }
+}

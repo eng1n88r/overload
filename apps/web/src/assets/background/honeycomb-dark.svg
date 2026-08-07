@@ -1,0 +1,15 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='144' height='84' viewBox='0 0 144 84'>
+<!-- Seamless honeycomb, 144 x 84 tile.
+     Open polylines, not closed hexagons: adjacent cells share edges, and drawing
+     whole hexagons strokes every shared edge twice, so two 5% strokes stack and
+     those edges come out at double weight. A hexagonal lattice has three unique
+     edges per cell, so each cell draws only its lower-left half and leaves the
+     rest to its neighbours. Cells are enumerated past the tile edge and clipped;
+     the tile is exactly one lattice period, so the fragments on either side are
+     complementary rather than overlapping.
+     Height is an even integer and edges sit on .5 so a 1px stroke covers exactly
+     one pixel row. Regular hexagons would be 83.1384 tall; the 1% squash is
+     invisible, the misalignment was not. Vite inlines this as a data URI. -->
+  <g fill='none' stroke='white' stroke-opacity='.05' stroke-width='1'><polyline points='48,126.5 24,168.5 -24,168.5 -48,126.5'/><polyline points='192,126.5 168,168.5 120,168.5 96,126.5'/><polyline points='-24,84.5 -48,126.5 -96,126.5 -120,84.5'/><polyline points='120,84.5 96,126.5 48,126.5 24,84.5'/><polyline points='264,84.5 240,126.5 192,126.5 168,84.5'/><polyline points='48,42.5 24,84.5 -24,84.5 -48,42.5'/><polyline points='192,42.5 168,84.5 120,84.5 96,42.5'/><polyline points='-24,0.5 -48,42.5 -96,42.5 -120,0.5'/><polyline points='120,0.5 96,42.5 48,42.5 24,0.5'/><polyline points='264,0.5 240,42.5 192,42.5 168,0.5'/><polyline points='48,-41.5 24,0.5 -24,0.5 -48,-41.5'/><polyline points='192,-41.5 168,0.5 120,0.5 96,-41.5'/>
+  </g>
+</svg>

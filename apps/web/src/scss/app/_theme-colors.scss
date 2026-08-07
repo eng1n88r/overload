@@ -1,0 +1,40 @@
+// Accent picker in the header dropdown: a plain list of names, where hovering a
+// row floods it with the accent it would set. The swatch grid this replaced made
+// you decode twelve unlabelled squares; here the row says what it is and shows
+// you the colour at the same time.
+.theme-color-list {
+	min-width: rem(180px);
+
+	& .theme-color-item {
+		display: flex;
+		align-items: center;
+		gap: $spacer * .5;
+		width: 100%;
+		// Same box as a .dropdown-item, so these rows line up with the section
+		// header and with the appearance menu next door.
+		padding: $dropdown-item-padding-y $dropdown-item-padding-x;
+		border: 0;
+		background: none;
+		text-align: start;
+		color: var(--#{$prefix}inverse);
+		transition: background-color .12s linear, color .12s linear;
+
+		& .theme-color-check {
+			margin-inline-start: auto;
+		}
+	}
+}
+
+// One rule per accent, straight off $theme-colors, so the list cannot drift from
+// the colours the app can actually be set to. color-contrast picks black or white
+// text per swatch -- white on the yellow and lime accents would be unreadable.
+@each $name, $value in $theme-colors {
+	.theme-color-item.accent-#{$name} {
+		&:hover,
+		&:focus-visible {
+			background-color: $value;
+			color: color-contrast($value);
+			outline: none;
+		}
+	}
+}

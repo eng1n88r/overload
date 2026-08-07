@@ -1,0 +1,7 @@
+@mixin font-size($from, $to) {
+	@for $i from $from through $to {
+		.fs-#{$i}px {
+			font-size: $i + px !important;
+		}
+	}
+}

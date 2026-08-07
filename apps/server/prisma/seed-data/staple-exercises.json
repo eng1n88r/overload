@@ -1,0 +1,92 @@
+[
+  {
+    "id": "Bird_Dog",
+    "name": "Bird Dog",
+    "category": "strength",
+    "mechanic": "compound",
+    "equipment": "bodyweight",
+    "primary": ["lower_back", "abs"],
+    "secondary": ["glutes", "shoulders"],
+    "images": [],
+    "instructions": ["Start on all fours, hands under shoulders and knees under hips.", "Extend one arm forward and the opposite leg back until both are parallel to the floor, keeping hips level.", "Hold briefly, return with control, and switch sides."]
+  },
+  {
+    "id": "Chest_Supported_Dumbbell_Row",
+    "name": "Chest-Supported Dumbbell Row",
+    "category": "strength",
+    "mechanic": "compound",
+    "equipment": "dumbbells",
+    "apparatus": "bench",
+    "primary": ["upper_back", "lats"],
+    "secondary": ["biceps", "rear_delts"],
+    "images": ["Dumbbell_Incline_Row/0.jpg", "Dumbbell_Incline_Row/1.jpg"],
+    "instructions": ["Set a bench to a 30-45 degree incline and lie chest-down with a dumbbell in each hand.", "Row the dumbbells toward your hips, squeezing the shoulder blades together.", "Lower under control; the chest stays on the pad the whole set."]
+  },
+  {
+    "id": "Banded_Hamstring_Curl",
+    "name": "Banded Hamstring Curl",
+    "category": "strength",
+    "mechanic": "isolation",
+    "equipment": "resistance band",
+    "primary": ["hamstrings"],
+    "secondary": ["calves"],
+    "images": ["Seated_Band_Hamstring_Curl/0.jpg", "Seated_Band_Hamstring_Curl/1.jpg"],
+    "instructions": ["Anchor a band low and loop it around one ankle, facing the anchor lying prone or standing.", "Curl the heel toward your glutes against the band's resistance.", "Return slowly and complete all reps before switching legs."]
+  },
+  {
+    "id": "Band_Face_Pull",
+    "name": "Band Face Pull",
+    "category": "strength",
+    "mechanic": "compound",
+    "equipment": "resistance band",
+    "primary": ["rear_delts", "upper_back"],
+    "secondary": ["traps"],
+    "images": ["Face_Pull/0.jpg", "Face_Pull/1.jpg"],
+    "instructions": ["Anchor a band at face height and grab the ends with both hands, arms extended.", "Pull toward your face, driving the elbows high and wide while externally rotating the shoulders.", "Pause with hands beside the ears, then return under control."]
+  },
+  {
+    "id": "Dumbbell_Goblet_Squat",
+    "name": "Dumbbell Goblet Squat",
+    "category": "strength",
+    "mechanic": "compound",
+    "equipment": "dumbbells",
+    "primary": ["quads", "glutes"],
+    "secondary": ["abs", "adductors"],
+    "images": ["Goblet_Squat/0.jpg", "Goblet_Squat/1.jpg"],
+    "instructions": ["Hold one dumbbell vertically against your chest with both hands under the top head.", "Squat down between your knees keeping the torso upright and heels down.", "Drive back up through the mid-foot."]
+  },
+  {
+    "id": "Copenhagen_Plank",
+    "name": "Copenhagen Plank",
+    "category": "strength",
+    "mechanic": "isolation",
+    "equipment": "bodyweight",
+    "apparatus": "bench",
+    "primary": ["adductors", "obliques"],
+    "secondary": ["abs"],
+    "images": [],
+    "instructions": ["Lie on your side with the top foot or knee resting on a bench, forearm under the shoulder.", "Lift the hips into a straight side plank supported by the top leg.", "Hold for time, keeping hips stacked; switch sides."]
+  },
+  {
+    "id": "Suitcase_Carry",
+    "name": "Suitcase Carry",
+    "category": "strength",
+    "mechanic": "compound",
+    "equipment": "dumbbells",
+    "primary": ["obliques", "forearms"],
+    "secondary": ["traps", "abs"],
+    "images": [],
+    "instructions": ["Hold a heavy dumbbell in one hand at your side.", "Walk tall for the prescribed distance or time without leaning toward the load.", "Switch hands and repeat."]
+  },
+  {
+    "id": "Side_Bridge_Hold",
+    "name": "Side Bridge Hold",
+    "category": "strength",
+    "mechanic": "isolation",
+    "equipment": "bodyweight",
+    "primary": ["obliques", "abs"],
+    "secondary": ["shoulders"],
+    "images": ["Side_Bridge/0.jpg", "Side_Bridge/1.jpg"],
+    "instructions": ["Lie on your side, forearm under the shoulder, feet stacked.", "Lift the hips until the body forms a straight line.", "Hold for the target time, breathing steadily; switch sides."]
+  }
+]

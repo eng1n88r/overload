@@ -1,0 +1,16 @@
+name: overload
+
+services:
+  overload:
+    build: .
+    image: overload:latest
+    container_name: overload
+    ports:
+      - "3002:3001"
+    environment:
+      DATABASE_URL: file:/data/overload.db
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      PORT: "3001"
+    volumes:
+      - ./appdata:/data
+    restart: unless-stopped

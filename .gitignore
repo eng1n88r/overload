@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.log
+
+# local env
+.env
+.env.local
+.claude/
+
+# databases
+*.db
+*.db-journal
+appdata/
+
+# personal data & purchased theme (zips + extracted reference copy)
+data/
+
+# OS noise
+.DS_Store
+Thumbs.db
+.ref-shots/

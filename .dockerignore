@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/dist
+.git
+theme
+data
+appdata
+*.db
+*.db-journal
+.env
+.env.local
+Dockerfile
+docker-compose.yml
+assets
+README.md

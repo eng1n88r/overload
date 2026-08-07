@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AppSetting {
+  key   String @id
+  value String
+}
+
+model User {
+  id                     String   @id @default(cuid())
+  email                  String   @unique
+  passwordHash           String
+  name                   String
+  role                   String   @default("user") // admin | user
+  unitPreference         String   @default("kg") // kg | lb
+  distanceUnitPreference String   @default("km") // km | mi
+  equipment              String   @default("[]") // JSON string[] of available equipment
+  trainingMode           String   @default("hypertrophy") // strength | hypertrophy | endurance
+  avatar                 String?  // data:image/... URL, small square image
+  createdAt              DateTime @default(now())
+
+  sessions Session[]
+  apiKeys  ApiKey[]
+  plans    Plan[]
+}
+
+model Plan {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  status     String   @default("active") // active | archived
+  startDate  DateTime @default(now())
+  weeks      Int      @default(8)
+  daysPerWeek Int     @default(4)
+  deloadWeeks String  @default("[]") // JSON int[] of 1-based deload week numbers
+  notes      String?
+  createdBy  String   @default("manual") // manual | generator | mcp
+  createdAt  DateTime @default(now())
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  days PlanDay[]
+
+  @@index([userId, status])
+}
+
+model PlanDay {
+  id            String @id @default(cuid())
+  planId        String
+  dayIndex      Int
+  name          String
+  mode          String? // per-day training mode override
+  weekday       Int? // 0=Monday ... 6=Sunday; anchors week generation
+  targetMuscles String @default("[]") // JSON string[]
+  template      String @default("[]") // JSON [{exerciseId, sets, repsLow, repsHigh}]
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, dayIndex])
+}
+
+model Session {
+  id        String   @id // sha256 hash of the cookie token
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Exercise {
+  id           String  @id @default(cuid()) // slug (e.g. Barbell_Bench_Press) for catalog, cuid for custom
+  name         String  @unique
+  category     String // strength | cardio | stretch
+  sourceCategory String? // original free-exercise-db category
+  force        String? // push | pull | static
+  level        String? // beginner | intermediate | expert
+  mechanic     String? // compound | isolation
+  equipment    String @default("other")
+  apparatus    String? // specific machine/station/bench derived from the name
+  loadFactor   Int     @default(1) // implements per rep × sides per rep count; seeds SetEntry.multiplier
+  defaultUnit  String  @default("reps") // reps | seconds — whether the movement is timed
+  instructions String @default("[]") // JSON string[]
+  images       String @default("[]") // JSON string[], paths under /img/exercises/
+  isCustom     Boolean @default(false)
+  createdById  String?
+
+  muscles          ExerciseMuscle[]
+  aliases          ExerciseAlias[]
+  workoutExercises WorkoutExercise[]
+}
+
+model ExerciseMuscle {
+  exerciseId String
+  muscle     String // canonical muscle slug from @overload/shared MUSCLES
+  role       String // primary | secondary
+
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@id([exerciseId, muscle, role])
+  @@index([muscle])
+}
+
+model ExerciseAlias {
+  alias      String @id
+  exerciseId String
+
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+}
+
+model Workout {
+  id         String    @id @default(cuid())
+  userId     String
+  date       DateTime
+  name       String?
+  status     String    @default("planned") // planned | in_progress | completed | skipped
+  source     String    @default("manual") // manual | generated | mcp
+  mode       String? // strength | hypertrophy | endurance (informs live rest timer)
+  externalId String? // idempotency key for bulk creation via MCP
+  notes      String?
+  durationSec Int?
+  createdAt  DateTime  @default(now())
+
+  exercises WorkoutExercise[]
+
+  @@unique([userId, externalId])
+  @@index([userId, date])
+}
+
+model WorkoutExercise {
+  id             String  @id @default(cuid())
+  workoutId      String
+  exerciseId     String
+  order          Int
+  targetSets     Int?
+  targetRepsLow  Int?
+  targetRepsHigh Int?
+  targetWeightKg Float?
+  unit           String? // reps | seconds; null inherits exercise.defaultUnit
+  notes          String?
+
+  workout  Workout    @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercise Exercise   @relation(fields: [exerciseId], references: [id])
+  sets     SetEntry[]
+
+  @@index([workoutId])
+  @@index([exerciseId])
+}
+
+model SetEntry {
+  id                String    @id @default(cuid())
+  workoutExerciseId String
+  order             Int
+  reps              Int?
+  weightKg          Float?
+  durationSec       Float?
+  distanceM         Float?
+  incline           Float?
+  resistance        Float?
+  isWarmup          Boolean   @default(false)
+  multiplier        Float     @default(1)
+  rpe               Float?
+  note              String?
+  completedAt       DateTime?
+
+  workoutExercise WorkoutExercise @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+
+  @@index([workoutExerciseId])
+}
+
+model BodyMetric {
+  id     String   @id @default(cuid())
+  userId String
+  date   DateTime // day precision, stored as UTC midnight
+  type   String // weight | waist | body_fat_pct | ... free-form
+  value  Float
+  unit   String @default("kg")
+
+  @@unique([userId, date, type])
+  @@index([userId, type, date])
+}
+
+model NutritionLog {
+  id       String   @id @default(cuid())
+  userId   String
+  date     DateTime // day precision, stored as UTC midnight
+  calories Int?
+  proteinG Float?
+  carbsG   Float?
+  fatG     Float?
+  note     String?
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  keyHash    String    @unique // sha256 of the full ovl_ token
+  keyPrefix  String // first 12 chars for display
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

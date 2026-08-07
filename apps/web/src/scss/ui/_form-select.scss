@@ -1,0 +1,10 @@
+.form-select:not([multiple]) {
+	& option {
+		color: $black;
+	}
+}
+.form-select {
+	padding-inline-start: $form-select-padding-x;
+	padding-inline-end: $form-select-indicator-padding;
+	
+}

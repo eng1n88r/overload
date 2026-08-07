@@ -1,0 +1,11 @@
+.app-content {
+	padding: $app-content-padding-y $app-content-padding-x;
+	flex: 1;
+	margin-inline-start: $app-sidebar-width;
+	
+	@include media-breakpoint-down(md) {
+		padding: $app-content-sm-padding-y $app-content-sm-padding-x;
+		margin-inline-start: 0;
+	}
+	
+}
