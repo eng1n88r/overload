@@ -7,6 +7,15 @@ const appVariable = useAppVariableStore();
 
 export function getApexConfiguration() {
 	return {
+		chart: {
+			// Dragging across a chart used to rubber-band a selection and zoom into
+			// it. On a touch screen that is indistinguishable from scrolling the page
+			// past a chart, and the way back out is the toolbar, which is hidden on
+			// every chart in the app. Off everywhere: a drag should read out values,
+			// not navigate.
+			zoom: { enabled: false },
+			selection: { enabled: false },
+		},
 		title: {
 			style: {
 				fontSize: '14px',
@@ -23,7 +32,11 @@ export function getApexConfiguration() {
 			style: {
 				fontSize: '12px',
 				fontFamily: appVariable.font.bodyFontFamily
-			}
+			},
+			// Read out the nearest point rather than demanding a hit on the bar or
+			// marker itself. Columns are 55% of their slot, so nearly half of a
+			// pointer sweep across a chart fell in the gaps and showed nothing.
+			intersect: false
 		},
 		grid: { borderColor: appVariable.color.borderColor },
 		dataLabels: {

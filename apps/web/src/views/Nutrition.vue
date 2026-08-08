@@ -64,7 +64,10 @@ const macroChart = computed(() => ({
       crosshairs: { show: false },
     },
     yaxis: { labels: { style: { colors: appVariable.color.bodyColor } }, title: { text: 'grams', style: { color: appVariable.color.bodyColor } } },
-    tooltip: { y: { formatter: (v: number) => `${v} g` } },
+    // shared, or the tooltip renders one series group and leaves the other two
+    // hidden but filled from series 0 -- pointing at the carbs band of a stack
+    // read back "Protein" with protein's number.
+    tooltip: { shared: true, y: { formatter: (v: number) => `${v} g` } },
   },
   series: [
     { name: 'Protein', data: chronological.value.map((l) => l.proteinG ?? 0) },
