@@ -37,6 +37,8 @@ interface LiveExercise {
     reps: number | null;
     weight: number | null;
     durationMin: number | null;
+    /** Set once the field is edited by hand; until then it tracks the clock. */
+    durationEdited: boolean;
     seconds: number | null;
     distance: number | null;
     resistance: number | null;
@@ -188,6 +190,7 @@ async function load() {
       reps: we.sets.at(-1)?.reps ?? we.targetRepsLow ?? null,
       weight: toDisplay(we.sets.at(-1)?.weightKg ?? we.targetWeightKg ?? null),
       durationMin: we.sets.at(-1)?.durationSec ? Math.round(we.sets.at(-1)!.durationSec! / 60) : null,
+      durationEdited: false,
       // Timed holds prefill from the last set, else the prescribed low target
       // (a plan's "15-25 seconds" arrives in targetRepsLow/High).
       seconds: we.sets.at(-1)?.durationSec ?? (modeOf(we) === 'timed' ? we.targetRepsLow : null) ?? null,
@@ -212,13 +215,38 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => clearInterval(tick));
 
+/**
+ * Minutes of the session not yet accounted for by a logged set.
+ *
+ * A cardio set has to record a duration, but the app is already timing the
+ * session — asking someone to read the clock and type the same number back is
+ * the confusing part. The field starts here and keeps counting until it is
+ * edited, so finishing a walk is one tap.
+ *
+ * Derived from the sets themselves rather than a running marker, so reloading
+ * the page mid-session does not start the count over from the top.
+ */
+const loggedSec = computed(() =>
+  exercises.value.reduce((a, we) => a + we.sets.reduce((b, st) => b + (st.durationSec ?? 0), 0), 0));
+const untrackedMinutes = computed(() => Math.max(0, Math.round((elapsed.value - loggedSec.value) / 60)));
+
+/** The minutes shown for a cardio set: the clock until someone overrides it. */
+function durationModel(we: LiveExercise) {
+  return we.input.durationEdited ? we.input.durationMin : untrackedMinutes.value;
+}
+function setDuration(we: LiveExercise, value: number | null) {
+  we.input.durationEdited = true;
+  we.input.durationMin = value == null ? null : Math.max(0, value);
+}
+
 async function logSet(we: LiveExercise) {
   const mode = modeOf(we);
   const load = loadKindOf(we.equipment);
   const i = we.input;
 
   // Nothing meaningful entered for this mode.
-  if (mode === 'cardio' && i.durationMin == null && i.distance == null) return;
+  const durationMin = mode === 'cardio' ? durationModel(we) : i.durationMin;
+  if (mode === 'cardio' && !durationMin && i.distance == null) return;
   if (mode === 'timed' && i.seconds == null) return;
   if (mode === 'reps' && i.reps == null && i.weight == null && i.resistance == null) return;
 
@@ -230,11 +258,17 @@ async function logSet(we: LiveExercise) {
     resistance: load === 'band' ? i.resistance : null,
     // Ungated: a timed hold is not cardio but still records duration.
     durationSec:
-      mode === 'cardio' ? (i.durationMin != null ? i.durationMin * 60 : null) : mode === 'timed' ? i.seconds : null,
+      mode === 'cardio' ? (durationMin != null ? durationMin * 60 : null) : mode === 'timed' ? i.seconds : null,
     distanceM: mode === 'cardio' ? toMeters(i.distance) : null,
     isWarmup: i.isWarmup,
   });
   we.input.isWarmup = false;
+  // Hand the field back to the clock; the set just logged is now part of
+  // loggedSec, so the next one counts from where this one ended.
+  if (mode === 'cardio') {
+    we.input.durationEdited = false;
+    we.input.durationMin = null;
+  }
   startRest();
   const { data } = await api.get(`/workouts/${workoutId}`);
   const fresh = data.workout.exercises.find((x: Omit<LiveExercise, 'input'>) => x.id === we.id);
@@ -332,11 +366,13 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
           <div class="row g-2 mt-1 align-items-center">
             <template v-if="modeOf(we) === 'cardio'">
               <div class="col-6">
-                <div class="text-inverse text-opacity-50 small text-center mb-1">minutes</div>
+                <div class="text-inverse text-opacity-50 small text-center mb-1">
+                  minutes <span v-if="!we.input.durationEdited" class="text-theme">· from timer</span>
+                </div>
                 <div class="input-group input-group-lg">
-                  <button class="btn btn-outline-secondary px-3" @click="we.input.durationMin = Math.max(0, (we.input.durationMin ?? 0) - 5)">−</button>
-                  <input type="number" inputmode="numeric" v-model.number="we.input.durationMin" class="form-control text-center px-1" placeholder="min" min="0" />
-                  <button class="btn btn-outline-secondary px-3" @click="we.input.durationMin = (we.input.durationMin ?? 0) + 5">+</button>
+                  <button class="btn btn-outline-secondary px-3" @click="setDuration(we, (durationModel(we) ?? 0) - 5)">−</button>
+                  <input type="number" inputmode="numeric" :value="durationModel(we)" @input="setDuration(we, ($event.target as HTMLInputElement).valueAsNumber)" class="form-control text-center px-1" placeholder="min" min="0" />
+                  <button class="btn btn-outline-secondary px-3" @click="setDuration(we, (durationModel(we) ?? 0) + 5)">+</button>
                 </div>
               </div>
               <div class="col-6">
