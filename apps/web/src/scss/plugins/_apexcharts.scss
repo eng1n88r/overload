@@ -1,4 +1,14 @@
 .apexcharts-canvas {
+	// Dragging a finger along a column on iOS started a text selection over the
+	// chart instead of reading values off it: grab handles, a blue wash across
+	// the plot, and a Copy / Look Up callout. ApexCharts' own stylesheet sets
+	// plain `user-select: none` here, which is why desktop browsers never did
+	// this — but suppressing touch selection and the callout bar in WebKit needs
+	// the two prefixed properties, and the library ships neither.
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+
 	& .apexcharts-tooltip {
 		font-size: rem(13px);
 		box-shadow: $dropdown-box-shadow;
