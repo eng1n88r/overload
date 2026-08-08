@@ -232,7 +232,10 @@ const untrackedMinutes = computed(() => Math.max(0, Math.round((elapsed.value - 
 
 /** The minutes shown for a cardio set: the clock until someone overrides it. */
 function durationModel(we: LiveExercise) {
-  return we.input.durationEdited ? we.input.durationMin : untrackedMinutes.value;
+  if (we.input.durationEdited) return we.input.durationMin;
+  // Blank, not 0, in the first minute after a set: an explicit zero reads as a
+  // value to correct, where an empty box reads as nothing to log yet.
+  return untrackedMinutes.value || null;
 }
 function setDuration(we: LiveExercise, value: number | null) {
   we.input.durationEdited = true;
@@ -269,7 +272,9 @@ async function logSet(we: LiveExercise) {
     we.input.durationEdited = false;
     we.input.durationMin = null;
   }
-  startRest();
+  // Rest is the gap between efforts. There is no such gap after cardio — a
+  // 1:00 countdown following a 35-minute walk is a clock for nothing.
+  if (mode !== 'cardio') startRest();
   const { data } = await api.get(`/workouts/${workoutId}`);
   const fresh = data.workout.exercises.find((x: Omit<LiveExercise, 'input'>) => x.id === we.id);
   if (fresh) we.sets = fresh.sets;
