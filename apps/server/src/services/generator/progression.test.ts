@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   MODE_CONFIG,
+  baseStepKg,
   bestE1RM,
   incrementFor,
   nextTarget,
   repMaxWeight,
   repRangeFor,
+  snapKg,
   warmupRamp,
 } from './progression.js';
 
@@ -172,5 +174,65 @@ describe('warmupRamp', () => {
 
   it('skips the ramp for light working weights', () => {
     expect(warmupRamp(35)).toEqual([]);
+  });
+});
+
+describe('prescriptions land on plates the lifter owns', () => {
+  const LB = 0.45359237;
+  /** kg back to lb, to the tenth the UI would print. */
+  const lb = (kg: number | null) => Math.round((kg ?? 0) / LB * 10) / 10;
+
+  it('rounds an lb lifter onto whole 5 lb steps, not a converted kg grid', () => {
+    // The bug: 16 kg is a tidy kg number that displays as 35.3 lb.
+    for (const kg of [16, 22.5, 37.5, 61.235]) {
+      const snapped = snapKg(kg, 'lb');
+      expect(lb(snapped) % 5).toBe(0);
+    }
+  });
+
+  it('leaves a kg lifter on the 2.5 kg grid they already had', () => {
+    expect(baseStepKg('kg')).toBe(2.5);
+    for (const kg of [16, 22.4, 61.3]) {
+      expect(snapKg(kg, 'kg') % 2.5).toBe(0);
+    }
+  });
+
+  it('steps dumbbells by 5 lb for an lb lifter and 2 kg for a kg one', () => {
+    expect(lb(incrementFor('dumbbells', 'hypertrophy', false, 'lb'))).toBe(5);
+    expect(incrementFor('dumbbells', 'hypertrophy', false, 'kg')).toBe(2.0);
+  });
+
+  it('jumps double on lower-body strength work, in either unit', () => {
+    expect(lb(incrementFor('barbell', 'strength', true, 'lb'))).toBe(10);
+    expect(incrementFor('barbell', 'strength', true, 'kg')).toBe(5);
+  });
+
+  it('loads nothing for bodyweight and bands whatever the unit', () => {
+    for (const unit of ['kg', 'lb'] as const) {
+      expect(incrementFor('bodyweight', 'hypertrophy', false, unit)).toBe(0);
+      expect(incrementFor('resistance band', 'hypertrophy', false, unit)).toBe(0);
+    }
+  });
+
+  it('keeps a progressed target loadable for an lb lifter', () => {
+    // Top of the range hit twice -> add a step. The result must still be
+    // something you can put on a bar.
+    const history = [hyp([{ reps: 10, weightKg: 16 }, { reps: 10, weightKg: 16 }])];
+    const inc = incrementFor('dumbbells', 'hypertrophy', false, 'lb');
+    const t = nextTarget(history, 'hypertrophy', 'compound', inc, 'lb');
+    expect(lb(t.weightKg) % 5).toBe(0);
+  });
+
+  it('keeps a deload loadable for an lb lifter', () => {
+    const stalled = hyp([{ reps: 6, weightKg: 40 }]);
+    const t = nextTarget([stalled, stalled, stalled], 'hypertrophy', 'compound',
+      incrementFor('barbell', 'hypertrophy', false, 'lb'), 'lb');
+    expect(t.deload).toBe(true);
+    expect(lb(t.weightKg) % 5).toBe(0);
+  });
+
+  it('defaults to kg when no unit is given, so existing callers are unchanged', () => {
+    expect(incrementFor('barbell')).toBe(2.5);
+    expect(incrementFor('dumbbells')).toBe(2.0);
   });
 });

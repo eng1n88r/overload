@@ -3,12 +3,16 @@ import { prisma } from '../../lib/prisma.js';
 import { getRecoveryState } from '../recovery.js';
 import {
   MODE_CONFIG,
+  baseStepKg,
   incrementFor,
   isLowerBody,
   nextTarget,
+  snapKg,
+  toDisplayWeight,
   warmupRamp,
   type SessionPerformance,
   type TrainingMode,
+  type WeightUnit,
 } from './progression.js';
 
 // Deterministic rules engine. Claude does the smarter adjustments via MCP.
@@ -50,6 +54,7 @@ async function applyProgression(
   userId: string,
   exerciseId: string,
   mode: TrainingMode,
+  unit: WeightUnit,
 ): Promise<GeneratedExercise> {
   const exercise = await prisma.exercise.findUniqueOrThrow({
     where: { id: exerciseId },
@@ -57,15 +62,16 @@ async function applyProgression(
   });
   const history = await loadHistory(userId, exerciseId);
   const lowerBody = isLowerBody(exercise.muscles.map((m) => m.muscle));
-  const increment = incrementFor(exercise.equipment, mode, lowerBody);
-  const target = nextTarget(history, mode, exercise.mechanic, increment);
+  const increment = incrementFor(exercise.equipment, mode, lowerBody, unit);
+  const target = nextTarget(history, mode, exercise.mechanic, increment, unit);
 
   const notes: string[] = [];
   if (target.deload) notes.push('Deload: -10% after stall — rebuild with clean reps');
   if (MODE_CONFIG[mode].warmupRamp && exercise.mechanic === 'compound' && target.weightKg) {
-    const ramp = warmupRamp(target.weightKg);
+    const ramp = warmupRamp(target.weightKg, baseStepKg(unit));
     if (ramp.length) {
-      notes.push(`Warm-up: ${ramp.map((r) => `${r.reps}×${r.weightKg}kg`).join(', ')}`);
+      // The note names weights, so it has to name them in the lifter's unit.
+      notes.push(`Warm-up: ${ramp.map((r) => `${r.reps}×${toDisplayWeight(r.weightKg, unit)}${unit}`).join(', ')}`);
     }
   }
   if (MODE_CONFIG[mode].cue) notes.push(MODE_CONFIG[mode].cue!);
@@ -172,6 +178,7 @@ export async function generateWorkout(userId: string, opts: GenerateOptions = {}
   }
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  const unit: WeightUnit = user.unitPreference === 'lb' ? 'lb' : 'kg';
   const equipment: string[] = JSON.parse(user.equipment || '[]');
   const userMode = (user.trainingMode as TrainingMode) || 'hypertrophy';
 
@@ -196,12 +203,13 @@ export async function generateWorkout(userId: string, opts: GenerateOptions = {}
 
     const template: PlanTemplateItem[] = JSON.parse(day.template);
     for (const t of template) {
-      const gen = await applyProgression(userId, t.exerciseId, mode);
+      const gen = await applyProgression(userId, t.exerciseId, mode, unit);
       let targetSets = t.sets ?? gen.targetSets;
       let targetWeightKg = t.targetWeightKg ?? gen.targetWeightKg;
       if (isDeload) {
         targetSets = Math.max(1, Math.round(targetSets * 0.6));
-        if (targetWeightKg) targetWeightKg = Math.round(targetWeightKg * 0.9 * 2) / 2;
+        // Onto the plate grid, not a 0.5 kg one — a deload still has to be loadable.
+        if (targetWeightKg) targetWeightKg = snapKg(targetWeightKg * 0.9, unit);
       }
       const extras = [
         t.notes,
@@ -254,7 +262,7 @@ export async function generateWorkout(userId: string, opts: GenerateOptions = {}
       const ids = await pickExercises(userId, muscle, equipment, exclude, perMuscle, mode);
       for (const id of ids) {
         exclude.add(id);
-        exercises.push(await applyProgression(userId, id, mode));
+        exercises.push(await applyProgression(userId, id, mode, unit));
       }
       if (exercises.length >= cap) break;
     }

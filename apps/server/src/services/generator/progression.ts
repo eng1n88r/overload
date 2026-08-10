@@ -106,17 +106,52 @@ export function isLowerBody(primaryMuscles: string[]): boolean {
   return primaryMuscles.some((m) => LOWER_BODY_MUSCLES.has(m));
 }
 
-export function incrementFor(equipment: string, mode: TrainingMode = 'hypertrophy', lowerBody = false): number {
+export type WeightUnit = 'kg' | 'lb';
+
+const KG_PER_LB = 0.45359237;
+
+/**
+ * The smallest jump a lifter can actually load, in kg.
+ *
+ * Everything here computes in kg, but the plates are not metric for everyone.
+ * Rounding to a kg grid and converting only for display is what prescribed
+ * 35.3 lb on a dumbbell press — 16 kg is a clean number in the wrong currency.
+ * Snapping to a grid taken from the lifter's own unit keeps both honest: a kg
+ * gym still gets 2.5 kg (a pair of 1.25s), an lb gym gets whole 5 lb.
+ */
+export function baseStepKg(unit: WeightUnit): number {
+  return unit === 'lb' ? 5 * KG_PER_LB : 2.5;
+}
+
+/** Round a kg weight onto the lifter's own plate grid. */
+export function snapKg(weightKg: number, unit: WeightUnit): number {
+  return roundToStep(weightKg, baseStepKg(unit));
+}
+
+/** Weight in the lifter's unit, for prose that has to name a number. */
+export function toDisplayWeight(weightKg: number, unit: WeightUnit): number {
+  return unit === 'lb' ? Math.round(weightKg / KG_PER_LB) : Math.round(weightKg * 2) / 2;
+}
+
+export function incrementFor(
+  equipment: string,
+  mode: TrainingMode = 'hypertrophy',
+  lowerBody = false,
+  unit: WeightUnit = 'kg',
+): number {
+  const base = baseStepKg(unit);
   switch (equipment) {
     case 'dumbbells':
     case 'kettlebell':
-      return 2.0;
+      // Metric bells commonly step in 2s; imperial ones in 5 lb, which is the
+      // base grid already.
+      return unit === 'lb' ? base : 2.0;
     case 'bodyweight':
     case 'resistance band':
       return 0;
     default:
       // Heavier absolute loads on lower-body strength work allow bigger jumps.
-      return mode === 'strength' && lowerBody ? 5 : 2.5;
+      return mode === 'strength' && lowerBody ? base * 2 : base;
   }
 }
 
@@ -164,12 +199,14 @@ export function nextTarget(
   mode: TrainingMode,
   mechanic: string | null,
   increment: number,
+  unit: WeightUnit = 'kg',
 ): ProgressionTarget {
   const cfg = MODE_CONFIG[mode];
   const kind = mechanic === 'isolation' ? 'isolation' : 'compound';
   const range = cfg.repRange[kind];
   const sets = cfg.sets[kind];
-  const step = increment >= 2.5 || increment === 0 ? 2.5 : increment;
+  const base = baseStepKg(unit);
+  const step = increment >= base || increment === 0 ? base : increment;
 
   const scores = history.map(sessionScore).filter((s): s is NonNullable<typeof s> => s !== null);
   const last = scores.at(-1);
@@ -228,7 +265,10 @@ export function nextTarget(
   // Sanity-cap unrealistic jumps against the e1RM — but never prescribe below
   // a weight the lifter already handled (that would be a hidden deload).
   if (ceiling !== null && weight > ceiling) weight = Math.max(ceiling, last.weight);
-  return { sets, repsLow: range.low, repsHigh: range.high, weightKg: weight, deload: false };
+  // Both branches above can hand back `last.weight` untouched, and history is
+  // whatever was logged — including the off-grid loads this used to prescribe.
+  // A repeat is still a prescription, so it has to be loadable too.
+  return { sets, repsLow: range.low, repsHigh: range.high, weightKg: roundToStep(weight, step), deload: false };
 }
 
 /** Warm-up ramp toward a working weight (strength mode): ~40/60/80% singles
