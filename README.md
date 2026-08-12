@@ -126,7 +126,41 @@ plan around both, and the next generated session comes off the new one.
 
 ## Run your own server
 
-### Docker
+### From the published image
+
+No clone needed — [`exbarboss/overload`](https://hub.docker.com/r/exbarboss/overload) is built
+for amd64 and arm64 on every release:
+
+```bash
+docker run -d --name overload \
+  -p 3001:3001 \
+  -v ./appdata:/data \
+  -e DATABASE_URL=file:/data/overload.db \
+  -e SESSION_SECRET=$(openssl rand -hex 32) \
+  --restart unless-stopped \
+  exbarboss/overload:latest
+```
+
+Or as a compose service:
+
+```yaml
+services:
+  overload:
+    image: exbarboss/overload:latest
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: file:/data/overload.db
+      SESSION_SECRET: change-me-to-a-long-random-string
+    volumes:
+      - ./appdata:/data
+    restart: unless-stopped
+```
+
+Open http://localhost:3001 and sign up. Update: pull the new tag and recreate the container —
+migrations apply on start, and the database in `./appdata` is never touched by an upgrade.
+
+### Build from source (Docker)
 
 ```bash
 git clone git@github.com:eng1n88r/overload.git && cd overload
@@ -140,6 +174,10 @@ docker compose up -d --build
   and version upgrades leave the database alone. Back up that folder.
 - Update: `git pull && docker compose up -d --build`. Migrations apply on start.
 - Force a catalog re-seed: set `FORCE_SEED=1` once.
+- The compose file also starts **`overload-test`** on :3003 — a second instance with its own
+  database for trying things out. Fill it with the demo user once:
+  `docker exec overload-test node dist/seed-demo.js`, then sign in as
+  `demo@overload.example` / `overload-demo`.
 
 ### Without Docker
 
