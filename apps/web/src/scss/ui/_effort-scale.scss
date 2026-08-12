@@ -12,9 +12,5 @@
 		flex: 1 1 0;
 		min-width: 0;
 		padding-inline: 0;
-		// btn-sm is 30px tall, and both platform guidelines put the smallest
-		// comfortable touch target at 44. This panel is tapped mid-session with
-		// chalky hands; the row is on its own line, so the height is free.
-		min-height: rem(44px);
 	}
 }
