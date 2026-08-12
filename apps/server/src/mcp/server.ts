@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { APP_VERSION } from '../lib/version.js';
 import { z } from 'zod';
 import type { User } from '@prisma/client';
 import {
@@ -88,7 +89,7 @@ function fmtSet(s: { reps: number | null; weightKg: number | null; durationSec: 
 }
 
 export function buildMcpServer(user: User): McpServer {
-  const server = new McpServer({ name: 'overload', version: '1.0.0' }, { instructions: SERVER_INSTRUCTIONS });
+  const server = new McpServer({ name: 'overload', version: APP_VERSION }, { instructions: SERVER_INSTRUCTIONS });
   const userId = user.id;
 
   // The full catalog as a cacheable resource (id | name | equipment/apparatus | primary muscles).

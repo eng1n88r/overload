@@ -14,3 +14,24 @@ services:
     volumes:
       - ./appdata:/data
     restart: unless-stopped
+
+  # Demo-data playground: same image, own database. Try changes here instead of
+  # on the real training log. First boot migrates and seeds the catalog itself;
+  # create the demo user once with:
+  #   docker exec overload-test node dist/seed-demo.js
+  # Login demo@overload.example / overload-demo. Wipe = delete ./appdata-test
+  # and re-run the exec.
+  overload-test:
+    image: overload:latest
+    container_name: overload-test
+    depends_on:
+      - overload
+    ports:
+      - "3003:3001"
+    environment:
+      DATABASE_URL: file:/data/overload.db
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      PORT: "3001"
+    volumes:
+      - ./appdata-test:/data
+    restart: unless-stopped

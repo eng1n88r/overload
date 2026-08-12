@@ -62,6 +62,9 @@ describe('auth', () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/health' });
     expect(res.statusCode).toBe(200);
     expect(res.json().status).toBe('ok');
+    // The version comes from package.json, not a string someone forgets to bump.
+    expect(res.json().version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(res.json().version).not.toBe('0.0.0');
   });
 
   it('registers the first user as admin and starts a session', async () => {

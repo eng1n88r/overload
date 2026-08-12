@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: { index: 'src/index.ts', seed: 'prisma/seed.ts' },
+  entry: { index: 'src/index.ts', seed: 'prisma/seed.ts', 'seed-demo': 'prisma/seed-demo.ts' },
   format: ['esm'],
   target: 'node22',
   sourcemap: true,

@@ -225,7 +225,9 @@ async function main() {
         durationSec: lift.seconds ? jitter((lift.seconds[0] + lift.seconds[1]) / 2, 8) : null,
         isWarmup: false,
         multiplier: loadFactors.get(lift.id) ?? 1,
-        rpe: pick([7, 7.5, 8, 8, 8.5, 9]),
+        // Rated like a person, not a sensor: later sets skew harder, and about
+        // a third go unrated because nobody rates everything.
+        rpe: rand() < 0.35 ? null : pick(s === lift.sets - 1 ? [8, 8.5, 9, 9.5] : [7, 7.5, 8, 8.5]),
         completedAt: new Date(),
       });
     }

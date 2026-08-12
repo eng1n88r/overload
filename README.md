@@ -20,7 +20,7 @@ an MCP server so Claude keeps working with the training data after the code is d
 navigate away; every set you have already logged stays on screen while you add the next one.
 
 <p align="center">
-  <img src="assets/screenshots/mobile-live.jpg" alt="Logging a set mid-session, rest timer counting down" width="245">
+  <img src="assets/screenshots/mobile-live.jpg" alt="Logging a set mid-session: rest timer counting down and the effort-rating prompt open" width="245">
   <img src="assets/screenshots/mobile-analytics.jpg" alt="Analytics on a phone" width="245">
   <img src="assets/screenshots/mobile-workouts.jpg" alt="Workout list, upcoming and history" width="245">
 </p>
@@ -269,69 +269,78 @@ Open http://localhost:5173 and register.
 
 - Tests: `npm test` (unit + integration suite against a scratch SQLite db)
 - Refresh exercise catalog: `scripts/fetch-exercise-db.sh` (`.ps1` on Windows), then `npm run db:seed`
+- Release: `npm version <x.y.z> -ws --include-workspace-root --no-git-tag-version`, add a
+  changelog entry, commit, tag `v<x.y.z>`, push — the tag builds and publishes the Docker image
 - Layout: `apps/server` (Fastify + Prisma + SQLite), `apps/web` (Vue 3 + Vite, HUD theme), `packages/shared` (zod schemas)
 
-## Training modes
+## How it works
 
-The generator prescribes by mode (default in Settings; override per plan day or per generate call):
+All decisions are deterministic rules in `apps/server/src/services` — no model, no cloud, same
+inputs → same plan. Claude can override any of it over MCP; these are the defaults.
+
+### Training modes
+
+Default in Settings; override per plan day or per generate call.
 
 | Mode | Reps (compound / isolation) | Load | Sets | Rest |
 |---|---|---|---|---|
-| strength | 3–6 / 6–10 | ~85–95% e1RM + warm-up ramp | 5 / 3 | 3:00 |
-| hypertrophy (default) | 6–10 / 10–15 | ~65–80% e1RM | 3 / 3 | 1:30 |
-| endurance | 15–20 / 15–25 | ~40–60% e1RM | 3 / 2 | 1:00 |
-| power | 3–5 (explosive compounds only) | ~50% e1RM, fast reps | 4 | 3:00 |
+| strength | 3–6 / 6–10 | ~95% of rep-max + warm-up ramp | 5 / 3 | 3:00 |
+| hypertrophy (default) | 6–10 / 10–15 | ~95% of rep-max | 3 / 3 | 1:30 |
+| endurance | 15–20 / 15–25 | ~90% of rep-max | 3 / 2 | 1:00 |
+| power | 3–5, explosive compounds only | 50% e1RM, moved fast | 4 | 3:00 |
 
-Weights anchor to the [Epley e1RM estimate](https://en.wikipedia.org/wiki/One-repetition_maximum#Epley_formula)
-(`e1RM = weight × (1 + reps / 30)`). Within a mode: double progression
-(top of range on all sets → add load; 3 stalled sessions → −10% deload).
-Switching modes re-derives the weight from e1RM.
+### Estimating strength
 
-## Effort ratings
+- Every working set yields an [Epley](https://en.wikipedia.org/wiki/One-repetition_maximum#Epley_formula) estimate: `e1RM = weight × (1 + reps / 30)`, reps capped at 12.
+- An effort rating adjusts the reps first: rated RPE 8 with 8 reps counts as a 10-rep effort
+  (`reps + reps-in-reserve`). Unrated sets count as taken to failure — the classic assumption.
+- The best estimate across the last 3 sessions anchors the prescription.
 
-After you log a set the rest bar asks how hard it was. Tapping a number is optional — skip it and
-everything behaves exactly as it did before — but it is the difference between the app counting
-your reps and the app knowing what they cost.
+### Prescribing the next weight
 
-The scale is **reps in reserve**, not a feeling out of ten. Each value is a claim about how many
-more reps you had:
+Double progression, bounded by the estimate:
 
-| | reps left | means |
-|---|---|---|
-| **10** | 0 | nothing left — could not have done one more |
-| **9.5** | ~0 | no more reps, but you could have held a touch more weight |
-| **9** | 1 | one more, definitely |
-| **8.5** | 1–2 | certainly one more, probably not two |
-| **8** | 2 | two more |
-| **7** | 3 | three more |
-| **6** | 4 | four more |
+1. Top of the rep range reached on all top-weight sets → add one increment; otherwise repeat the weight.
+2. The effort rating sizes the jump: ≤ 6 → two increments; 9 or harder → hold; unrated or 7–8.5 → one.
+3. Never above the weight where the *bottom* of the range would be a max effort; never below a weight already handled.
+4. Increments: barbell/machine/cable 5 lb or 2.5 kg (doubled for lower-body strength work), dumbbells 5 lb or 2 kg, bodyweight and bands 0.
+5. Everything is rounded onto the lifter's own plate grid — an lb lifter gets whole 5 lb steps, not converted kg.
+6. Strength mode adds a 40 / 60 / 80% warm-up ramp when the working weight is ≥ 40 kg.
 
-Halves exist only above 8 because that is where they change a decision. Lower down nobody can
-tell three reps in reserve from four, and the app treats 7 and 8 the same anyway.
+### Stalls and deloads
 
-**What it changes.** Three things, all of which fall back to today's behaviour when a set is
-unrated:
+- 3 sessions with no new weight or reps → −10%, rebuilt from clean reps.
+- 2 sessions rated 9.5+ with nothing gained → −10% immediately; grinding is not worth a third week.
+- 3 flat sessions all rated ≤ 7 → no deload; that is a weight never pushed, not a stall.
+- Plan deload weeks run at 60% of prescribed sets, −10% load.
 
-- **The 1RM estimate.** Epley assumes every set went to failure, so it reads low and by an amount
-  that shifts session to session. A rating fixes that: `8 × 60 kg` at RPE 8 is a 10-rep effort, so
-  **80 kg** rather than 76. An unrated set means 0 reps in reserve, which is precisely what the
-  estimate always assumed — so nothing already logged moves.
-- **The size of the jump**, once you reach the top of the rep range. From a 60 kg top set:
+### Effort scale
 
-  | rating | next session |
-  |---|---|
-  | 6 | 65 kg — two steps, you were under-loaded |
-  | 7, 8, 8.5 | 62.5 kg — one step, as usual |
-  | 9, 9.5, 10 | 60 kg — hold it, earn the reps clean first |
-  | unrated | 62.5 kg |
+Ratings are reps in reserve, not a feeling out of ten. Optional — an unrated set behaves exactly
+as it always did.
 
-  The hardest of your top-weight sets decides, not the average: one easy set does not undo a grind.
-- **Stalls, in both directions.** Two sessions at **9.5 or 10** with nothing gained deloads
-  immediately, rather than waiting out a third week under a weight that is already too heavy. And
-  three flat sessions that all felt **7 or easier** no longer deload at all — that is not a stall,
-  it is a lifter who never pushed, and cutting 10% is the wrong answer.
+| rating | reps left | rating | reps left |
+|---|---|---|---|
+| 10 | 0 | 8 | 2 |
+| 9.5 | last rep, but the bar wasn't the limit | 7 | 3 |
+| 9 | 1 | 6 | 4 |
+| 8.5 | 1–2 | | |
 
-Epley stops being meaningful past 12 reps, so on high-rep work a rating cannot raise the estimate.
+### Recovery
+
+Per-muscle fatigue is a sum of exponentially decaying set-equivalents: a primary-muscle working
+set adds 1, a secondary 0.5, and the contribution halves-off with a time constant of 48 h for
+large muscles (quads, hamstrings, glutes, back, chest) and 36 h for the rest. A muscle is fresh
+below 2.0 set-equivalents. Freestyle generation picks the freshest muscle group; the dashboard
+recovery panel is the same numbers.
+
+### Counting rules
+
+- Volume = reps × weight × multiplier. The multiplier is implements × sides
+  (a pair of dumbbells used one leg at a time = ×4) and is seeded per exercise, editable per set.
+- Warm-up sets are excluded from volume, records and estimates everywhere.
+- Weekly sets per muscle: primary counts 1, secondary 0.5.
+- Weekly charts zero-fill gaps — a skipped week shows as zero, not as a missing bar.
 
 ## Notes
 
@@ -359,3 +368,24 @@ The exercise dataset originates with [Ollie Jennings](https://github.com/jhonnyx
 free-exercise-db credits as its source. It is public domain and carries no attribution
 requirement; it is credited here because it is the larger part of this repository by size and
 none of it is our work.
+
+## Changelog
+
+### 0.2.0
+
+- Effort ratings (RPE): asked on the rest bar after each set, tap any logged set to rate or fix
+  it later, half steps above 8. Ratings feed the strength estimate, the size of the next jump,
+  and stall/deload detection.
+- Prescribed weights land on the lifter's plate grid — whole 5 lb steps for lb users instead of
+  converted kg values like 35.3 lb.
+- Charts: dragging reads out values instead of zooming, tooltips snap to the nearest point,
+  stacked macro tooltip shows all three series, no more text selection on touch.
+- Live cardio: the minutes field follows the session clock, and cardio sets no longer start a
+  rest countdown.
+- iOS fixes: pinch-zoom no longer crashes the tab (backdrop collapsed to one layer).
+- Run-without-Docker guide, published Docker image, demo dataset, version in the footer.
+
+### 0.1.0
+
+- Initial release: workout builder and generator, live logger, analytics, body and nutrition
+  tracking, exercise catalog, admin user management, MCP server for Claude.

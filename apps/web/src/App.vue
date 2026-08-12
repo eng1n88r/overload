@@ -9,6 +9,7 @@ import { useTheme } from '@/composables/theme';
 import router from './router';
 
 const appOption = useAppOptionStore();
+const version = __APP_VERSION__;
 const theme = useTheme();
 
 onMounted(() => theme.restoreTheme());
@@ -48,6 +49,9 @@ document.querySelector('body')!.classList.add('app-init');
 		<app-sidebar v-if="!appOption.appSidebarHide" />
 		<div class="app-content" v-bind:class="appOption.appContentClass">
 			<router-view></router-view>
+			<footer class="text-center small text-inverse text-opacity-25 pt-4 pb-3">
+				Overload v{{ version }}
+			</footer>
 		</div>
 	</div>
 </template>

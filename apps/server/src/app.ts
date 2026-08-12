@@ -6,6 +6,7 @@ import fastifyCompress from '@fastify/compress';
 import fastifyStatic from '@fastify/static';
 import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
 import authPlugin from './plugins/auth.js';
+import { APP_VERSION } from './lib/version.js';
 import authRoutes from './routes/auth.js';
 import apiKeyRoutes from './routes/api-keys.js';
 import exerciseRoutes from './routes/exercises.js';
@@ -31,7 +32,7 @@ export async function buildServer(options: { logger?: boolean } = {}) {
     maxAge: '7d',
   });
 
-  app.get('/api/v1/health', async () => ({ status: 'ok', version: '0.1.0' }));
+  app.get('/api/v1/health', async () => ({ status: 'ok', version: APP_VERSION }));
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   await app.register(apiKeyRoutes, { prefix: '/api/v1/api-keys' });
   await app.register(exerciseRoutes, { prefix: '/api/v1/exercises' });
