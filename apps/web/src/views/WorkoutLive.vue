@@ -253,16 +253,28 @@ function setDuration(we: LiveExercise, value: number | null) {
  */
 const RPE_SCALE = [6, 7, 8, 9, 10];
 const pendingRpe = ref<{ weId: string; setId: string; value: number | null } | null>(null);
+/** Set whose row was tapped to rate or re-rate it, away from the rest prompt. */
+const rpeEditing = ref<string | null>(null);
 
-async function rateSet(value: number) {
-  const p = pendingRpe.value;
-  if (!p) return;
-  // Tapping the chosen number again clears it — the only way back from a mis-tap.
-  const next = p.value === value ? null : value;
-  p.value = next;
-  await api.patch(`/workouts/${workoutId}/exercises/${p.weId}/sets/${p.setId}`, { rpe: next });
-  const row = exercises.value.find((x) => x.id === p.weId)?.sets.find((st) => st.id === p.setId);
+/** Tapping the number already chosen clears it — the way back from a mis-tap. */
+async function writeRpe(weId: string, setId: string, current: number | null, value: number) {
+  const next = current === value ? null : value;
+  const row = exercises.value.find((x) => x.id === weId)?.sets.find((st) => st.id === setId);
   if (row) row.rpe = next;
+  if (pendingRpe.value?.setId === setId) pendingRpe.value.value = next;
+  await api.patch(`/workouts/${workoutId}/exercises/${weId}/sets/${setId}`, { rpe: next });
+}
+
+function rateSet(value: number) {
+  const p = pendingRpe.value;
+  if (p) void writeRpe(p.weId, p.setId, p.value, value);
+}
+
+// The rest prompt only exists while a rest runs, so a set logged after Skip —
+// often the last of an exercise — would never be asked about. The row itself
+// is the fallback, and doubles as the way to correct a rating later.
+function toggleRpeRow(setId: string) {
+  rpeEditing.value = rpeEditing.value === setId ? null : setId;
 }
 
 async function logSet(we: LiveExercise) {
@@ -412,17 +424,40 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
             </div>
           </div>
 
-          <div v-for="s in we.sets" :key="s.id" class="d-flex align-items-center py-1 border-bottom border-inverse border-opacity-10 small">
-            <span class="text-inverse text-opacity-50 me-2" style="width: 2rem">#{{ s.order + 1 }}</span>
-            <span class="text-inverse">
-              <i v-if="s.isWarmup" class="ti ti-flame text-warning me-1" title="warmup"></i>
-              {{ setText(s) }}
-            </span>
-            <span v-if="s.rpe" class="badge bg-inverse bg-opacity-15 text-inverse text-opacity-75 ms-2">RPE {{ s.rpe }}</span>
-            <button class="btn btn-sm btn-link text-danger ms-auto py-0" @click="removeSet(we, s.id)">
-              <i class="ti ti-x"></i>
-            </button>
-          </div>
+          <template v-for="s in we.sets" :key="s.id">
+            <div
+              class="d-flex align-items-center py-1 border-bottom border-inverse border-opacity-10 small"
+              :class="{ 'border-bottom-0': rpeEditing === s.id }"
+              role="button"
+              :title="s.rpe ? `RPE ${s.rpe} — tap to change` : 'Tap to rate how hard it was'"
+              @click="toggleRpeRow(s.id)"
+            >
+              <span class="text-inverse text-opacity-50 me-2" style="width: 2rem">#{{ s.order + 1 }}</span>
+              <span class="text-inverse">
+                <i v-if="s.isWarmup" class="ti ti-flame text-warning me-1" title="warmup"></i>
+                {{ setText(s) }}
+              </span>
+              <span v-if="s.rpe" class="badge bg-inverse bg-opacity-15 text-inverse text-opacity-75 ms-2">RPE {{ s.rpe }}</span>
+              <button class="btn btn-sm btn-link text-danger ms-auto py-0" @click.stop="removeSet(we, s.id)">
+                <i class="ti ti-x"></i>
+              </button>
+            </div>
+            <div v-if="rpeEditing === s.id" class="d-flex align-items-center gap-2 pb-2 border-bottom border-inverse border-opacity-10">
+              <span class="text-inverse text-opacity-50 small text-nowrap" style="width: 4.5rem">how hard?</span>
+              <div class="d-flex gap-1 flex-grow-1">
+                <button
+                  v-for="n in RPE_SCALE"
+                  :key="n"
+                  type="button"
+                  class="btn btn-sm flex-grow-1 px-0"
+                  :class="s.rpe === n ? 'btn-theme' : 'btn-outline-secondary'"
+                  :aria-pressed="s.rpe === n"
+                  :title="`RPE ${n}`"
+                  @click="writeRpe(we.id, s.id, s.rpe, n)"
+                >{{ n }}</button>
+              </div>
+            </div>
+          </template>
 
           <div class="row g-2 mt-1 align-items-center">
             <template v-if="modeOf(we) === 'cardio'">
