@@ -205,7 +205,12 @@ export async function generateWorkout(userId: string, opts: GenerateOptions = {}
     for (const t of template) {
       const gen = await applyProgression(userId, t.exerciseId, mode, unit);
       let targetSets = t.sets ?? gen.targetSets;
-      let targetWeightKg = t.targetWeightKg ?? gen.targetWeightKg;
+      // A template load is a number stored when the plan was written, in
+      // whatever grid the writer used — Claude and the old generator both put
+      // kg-rounded values in here, which is how 16 kg kept resurfacing as
+      // 35.3 lb after the progression itself was fixed. Snap it on the way out;
+      // the generator's own figure is already on the grid.
+      let targetWeightKg = t.targetWeightKg != null ? snapKg(t.targetWeightKg, unit) : gen.targetWeightKg;
       if (isDeload) {
         targetSets = Math.max(1, Math.round(targetSets * 0.6));
         // Onto the plate grid, not a 0.5 kg one — a deload still has to be loadable.

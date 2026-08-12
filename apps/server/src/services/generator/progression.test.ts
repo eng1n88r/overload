@@ -236,3 +236,22 @@ describe('prescriptions land on plates the lifter owns', () => {
     expect(incrementFor('dumbbells')).toBe(2.0);
   });
 });
+
+describe('plan templates carry loads written in some other grid', () => {
+  const LB = 0.45359237;
+  const lb = (kg: number) => Math.round(kg / LB * 10) / 10;
+
+  // The generator was fixed but plan templates still held kg-rounded loads
+  // that overrode it, so 16 kg went on prescribing 35.3 lb.
+  it('snaps a stored template load onto the lifter\'s grid', () => {
+    expect(lb(snapKg(16, 'lb'))).toBe(35);
+    expect(lb(snapKg(11.3, 'lb'))).toBe(25);
+    expect(lb(snapKg(22.5, 'lb'))).toBe(50);
+  });
+
+  it('leaves a kg lifter\'s stored template load on the kg grid', () => {
+    expect(snapKg(16, 'kg')).toBe(15);
+    expect(snapKg(11.3, 'kg')).toBe(12.5);
+    expect(snapKg(22.5, 'kg')).toBe(22.5);
+  });
+});
