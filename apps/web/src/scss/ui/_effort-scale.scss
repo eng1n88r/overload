@@ -1,0 +1,20 @@
+// The RPE row: 6 to 10 in half steps.
+//
+// `flex-grow-1` alone leaves flex-basis at auto, so each chip starts at its own
+// text width and "8.5" ends up wider than "6" — seven chips of five different
+// widths. A zero basis makes the share equal, which is what a scale should
+// look like.
+.effort-scale {
+	display: flex;
+	gap: rem(4px);
+
+	& > .btn {
+		flex: 1 1 0;
+		min-width: 0;
+		padding-inline: 0;
+		// btn-sm is 30px tall, and both platform guidelines put the smallest
+		// comfortable touch target at 44. This panel is tapped mid-session with
+		// chalky hands; the row is on its own line, so the height is free.
+		min-height: rem(44px);
+	}
+}

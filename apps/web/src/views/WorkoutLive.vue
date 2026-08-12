@@ -251,7 +251,10 @@ function setDuration(we: LiveExercise, value: number | null) {
  * otherwise just a countdown. Nothing is added to the logging row, and a set
  * left unrated logs exactly as it did before.
  */
-const RPE_SCALE = [6, 7, 8, 9, 10];
+// Halves only above 8: near failure the difference between "2 left" and "1-2
+// left" is the one that changes next week's weight, and below that nobody can
+// tell the halves apart anyway.
+const RPE_SCALE = [6, 7, 8, 8.5, 9, 9.5, 10];
 const pendingRpe = ref<{ weId: string; setId: string; value: number | null } | null>(null);
 /** Set whose row was tapped to rate or re-rate it, away from the rest prompt. */
 const rpeEditing = ref<string | null>(null);
@@ -262,6 +265,14 @@ async function writeRpe(weId: string, setId: string, current: number | null, val
   const row = exercises.value.find((x) => x.id === weId)?.sets.find((st) => st.id === setId);
   if (row) row.rpe = next;
   if (pendingRpe.value?.setId === setId) pendingRpe.value.value = next;
+  // Answered: let the choice register, then get out of the way. Clearing is not
+  // an answer, so that leaves the panel open to pick another number.
+  if (next != null) {
+    setTimeout(() => {
+      if (pendingRpe.value?.setId === setId) pendingRpe.value = null;
+      if (rpeEditing.value === setId) rpeEditing.value = null;
+    }, 700);
+  }
   await api.patch(`/workouts/${workoutId}/exercises/${weId}/sets/${setId}`, { rpe: next });
 }
 
@@ -373,20 +384,18 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
   <!-- Rides the rest bar: shown only while resting, gone when rest ends. -->
   <Card v-if="restLeft > 0 && pendingRpe" class="mb-3">
     <CardBody class="py-2">
-      <div class="d-flex align-items-center gap-2">
-        <span class="text-inverse text-opacity-50 small text-nowrap">that set?</span>
-        <div class="d-flex gap-1 flex-grow-1">
-          <button
-            v-for="n in RPE_SCALE"
-            :key="n"
-            type="button"
-            class="btn btn-sm flex-grow-1 px-0"
-            :class="pendingRpe.value === n ? 'btn-theme' : 'btn-outline-secondary'"
-            :aria-pressed="pendingRpe.value === n"
-            :title="`RPE ${n}`"
-            @click="rateSet(n)"
-          >{{ n }}</button>
-        </div>
+      <div class="text-inverse text-opacity-50 small mb-1">how hard was that set?</div>
+      <div class="effort-scale">
+        <button
+          v-for="n in RPE_SCALE"
+          :key="n"
+          type="button"
+          class="btn btn-sm"
+          :class="pendingRpe.value === n ? 'btn-theme' : 'btn-outline-secondary'"
+          :aria-pressed="pendingRpe.value === n"
+          :title="`RPE ${n}`"
+          @click="rateSet(n)"
+        >{{ n }}</button>
       </div>
     </CardBody>
   </Card>
@@ -442,14 +451,14 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
                 <i class="ti ti-x"></i>
               </button>
             </div>
-            <div v-if="rpeEditing === s.id" class="d-flex align-items-center gap-2 pb-2 border-bottom border-inverse border-opacity-10">
-              <span class="text-inverse text-opacity-50 small text-nowrap" style="width: 4.5rem">how hard?</span>
-              <div class="d-flex gap-1 flex-grow-1">
+            <div v-if="rpeEditing === s.id" class="pb-2 border-bottom border-inverse border-opacity-10">
+              <div class="text-inverse text-opacity-50 small mb-1">how hard was that set?</div>
+              <div class="effort-scale">
                 <button
                   v-for="n in RPE_SCALE"
                   :key="n"
                   type="button"
-                  class="btn btn-sm flex-grow-1 px-0"
+                  class="btn btn-sm"
                   :class="s.rpe === n ? 'btn-theme' : 'btn-outline-secondary'"
                   :aria-pressed="s.rpe === n"
                   :title="`RPE ${n}`"
