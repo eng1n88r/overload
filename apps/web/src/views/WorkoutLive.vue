@@ -15,6 +15,7 @@ interface SetRow {
   durationSec: number | null;
   distanceM: number | null;
   resistance: number | null;
+  rpe: number | null;
   isWarmup: boolean;
 }
 interface LiveExercise {
@@ -242,6 +243,28 @@ function setDuration(we: LiveExercise, value: number | null) {
   we.input.durationMin = value == null ? null : Math.max(0, value);
 }
 
+/**
+ * The set awaiting an effort rating.
+ *
+ * RPE is asked after the set rather than before it, because that is when you
+ * know the answer — and during the rest that follows, when the screen is
+ * otherwise just a countdown. Nothing is added to the logging row, and a set
+ * left unrated logs exactly as it did before.
+ */
+const RPE_SCALE = [6, 7, 8, 9, 10];
+const pendingRpe = ref<{ weId: string; setId: string; value: number | null } | null>(null);
+
+async function rateSet(value: number) {
+  const p = pendingRpe.value;
+  if (!p) return;
+  // Tapping the chosen number again clears it — the only way back from a mis-tap.
+  const next = p.value === value ? null : value;
+  p.value = next;
+  await api.patch(`/workouts/${workoutId}/exercises/${p.weId}/sets/${p.setId}`, { rpe: next });
+  const row = exercises.value.find((x) => x.id === p.weId)?.sets.find((st) => st.id === p.setId);
+  if (row) row.rpe = next;
+}
+
 async function logSet(we: LiveExercise) {
   const mode = modeOf(we);
   const load = loadKindOf(we.equipment);
@@ -253,7 +276,7 @@ async function logSet(we: LiveExercise) {
   if (mode === 'timed' && i.seconds == null) return;
   if (mode === 'reps' && i.reps == null && i.weight == null && i.resistance == null) return;
 
-  await api.post(`/workouts/${workoutId}/exercises/${we.id}/sets`, {
+  const { data: created } = await api.post(`/workouts/${workoutId}/exercises/${we.id}/sets`, {
     reps: mode === 'reps' ? i.reps : null,
     // Bands carry resistance, bodyweight carries nothing — offering a kg field
     // for either is what put a band's lb rating in the weight column twice.
@@ -265,6 +288,9 @@ async function logSet(we: LiveExercise) {
     distanceM: mode === 'cardio' ? toMeters(i.distance) : null,
     isWarmup: i.isWarmup,
   });
+  // Read before the checkbox is cleared: `i` is we.input, so resetting it below
+  // would make every warm-up look like a working set to the RPE prompt.
+  const wasWarmup = i.isWarmup;
   we.input.isWarmup = false;
   // Hand the field back to the clock; the set just logged is now part of
   // loggedSec, so the next one counts from where this one ended.
@@ -274,7 +300,15 @@ async function logSet(we: LiveExercise) {
   }
   // Rest is the gap between efforts. There is no such gap after cardio — a
   // 1:00 countdown following a 35-minute walk is a clock for nothing.
-  if (mode !== 'cardio') startRest();
+  if (mode !== 'cardio') {
+    startRest();
+    // Warm-ups are not efforts worth rating, and the prompt rides the rest bar.
+    pendingRpe.value = wasWarmup || !created?.set?.id
+      ? null
+      : { weId: we.id, setId: created.set.id, value: null };
+  } else {
+    pendingRpe.value = null;
+  }
   const { data } = await api.get(`/workouts/${workoutId}`);
   const fresh = data.workout.exercises.find((x: Omit<LiveExercise, 'input'>) => x.id === we.id);
   if (fresh) we.sets = fresh.sets;
@@ -324,6 +358,27 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
     <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
   </div>
 
+  <!-- Rides the rest bar: shown only while resting, gone when rest ends. -->
+  <Card v-if="restLeft > 0 && pendingRpe" class="mb-3">
+    <CardBody class="py-2">
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-inverse text-opacity-50 small text-nowrap">that set?</span>
+        <div class="d-flex gap-1 flex-grow-1">
+          <button
+            v-for="n in RPE_SCALE"
+            :key="n"
+            type="button"
+            class="btn btn-sm flex-grow-1 px-0"
+            :class="pendingRpe.value === n ? 'btn-theme' : 'btn-outline-secondary'"
+            :aria-pressed="pendingRpe.value === n"
+            :title="`RPE ${n}`"
+            @click="rateSet(n)"
+          >{{ n }}</button>
+        </div>
+      </div>
+    </CardBody>
+  </Card>
+
   <div class="row g-3">
     <div v-for="we in exercises" :key="we.id" class="col-xl-6">
       <Card>
@@ -363,6 +418,7 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
               <i v-if="s.isWarmup" class="ti ti-flame text-warning me-1" title="warmup"></i>
               {{ setText(s) }}
             </span>
+            <span v-if="s.rpe" class="badge bg-inverse bg-opacity-15 text-inverse text-opacity-75 ms-2">RPE {{ s.rpe }}</span>
             <button class="btn btn-sm btn-link text-danger ms-auto py-0" @click="removeSet(we, s.id)">
               <i class="ti ti-x"></i>
             </button>

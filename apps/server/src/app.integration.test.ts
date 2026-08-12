@@ -400,6 +400,78 @@ describe('workouts', () => {
     expect(setRes.statusCode).toBe(200);
     expect(setRes.json().set.order).toBe(3);
   });
+
+  // The live logger asks how hard a set was during the rest that follows it,
+  // so the rating lands on a row that already exists.
+  it('rates a logged set after the fact, and can unrate it', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/v1/workouts',
+      cookies: { ovl_session: sessionCookie },
+    });
+    const we = list.json().workouts[0].exercises[0];
+    const setId = we.sets.at(-1).id;
+
+    const rate = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${workoutId}/exercises/${we.id}/sets/${setId}`,
+      cookies: { ovl_session: sessionCookie },
+      payload: { rpe: 8.5 },
+    });
+    expect(rate.statusCode).toBe(200);
+    expect(rate.json().set.rpe).toBe(8.5);
+
+    // PATCH: an omitted field is left alone, an explicit null clears it.
+    const note = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${workoutId}/exercises/${we.id}/sets/${setId}`,
+      cookies: { ovl_session: sessionCookie },
+      payload: { note: 'last rep was a grind' },
+    });
+    expect(note.json().set.rpe).toBe(8.5);
+    expect(note.json().set.note).toBe('last rep was a grind');
+
+    const clear = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${workoutId}/exercises/${we.id}/sets/${setId}`,
+      cookies: { ovl_session: sessionCookie },
+      payload: { rpe: null },
+    });
+    expect(clear.json().set.rpe).toBeNull();
+  });
+
+  it('refuses a rating outside the scale, or on someone else\'s set', async () => {
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/v1/workouts',
+      cookies: { ovl_session: sessionCookie },
+    });
+    const we = list.json().workouts[0].exercises[0];
+    const setId = we.sets.at(-1).id;
+
+    const tooHigh = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${workoutId}/exercises/${we.id}/sets/${setId}`,
+      cookies: { ovl_session: sessionCookie },
+      payload: { rpe: 11 },
+    });
+    expect(tooHigh.statusCode).toBe(400);
+
+    const noSession = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${workoutId}/exercises/${we.id}/sets/${setId}`,
+      payload: { rpe: 7 },
+    });
+    expect(noSession.statusCode).toBe(401);
+
+    const missing = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${workoutId}/exercises/${we.id}/sets/does-not-exist`,
+      cookies: { ovl_session: sessionCookie },
+      payload: { rpe: 7 },
+    });
+    expect(missing.statusCode).toBe(404);
+  });
 });
 
 describe('analytics', () => {

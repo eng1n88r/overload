@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import {
   generateWorkoutSchema,
   setEntrySchema,
+  setUpdateSchema,
   workoutCreateSchema,
   workoutListQuerySchema,
   workoutUpdateSchema,
@@ -190,6 +191,38 @@ export default async function workoutRoutes(app: FastifyInstance) {
         },
       });
       return { set: { id: set.id, order: set.order } };
+    },
+  );
+
+  // Revise a logged set. The live logger asks for RPE during the rest that
+  // follows the set, so the value arrives after the row already exists.
+  r.patch(
+    '/:id/exercises/:weId/sets/:setId',
+    {
+      schema: {
+        params: z.object({ id: z.string(), weId: z.string(), setId: z.string() }),
+        body: setUpdateSchema,
+      },
+    },
+    async (request, reply) => {
+      const set = await prisma.setEntry.findFirst({
+        where: {
+          id: request.params.setId,
+          workoutExerciseId: request.params.weId,
+          workoutExercise: { workoutId: request.params.id, workout: { userId: request.user!.id } },
+        },
+      });
+      if (!set) return reply.code(404).send({ error: 'Not found' });
+      const b = request.body;
+      const updated = await prisma.setEntry.update({
+        where: { id: set.id },
+        // PATCH: an omitted field stays as it was; an explicit null clears it.
+        data: {
+          ...(b.rpe !== undefined ? { rpe: b.rpe } : {}),
+          ...(b.note !== undefined ? { note: b.note } : {}),
+        },
+      });
+      return { set: { id: updated.id, rpe: updated.rpe, note: updated.note } };
     },
   );
 

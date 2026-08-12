@@ -26,6 +26,13 @@ export const setEntrySchema = z.object({
   completedAt: z.string().datetime({ offset: true }).nullish(),
 });
 
+/** PATCH one logged set. Only the fields the live logger can revise after the
+ *  fact — RPE is asked during the rest that follows the set, not before it. */
+export const setUpdateSchema = z.object({
+  rpe: numeric(num().min(1).max(10)).nullish(),
+  note: z.string().max(500).nullish(),
+});
+
 export const workoutExerciseSchema = z.object({
   exerciseId: z.string(),
   targetSets: z.number().int().positive().nullish(),
