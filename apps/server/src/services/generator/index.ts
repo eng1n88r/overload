@@ -46,7 +46,9 @@ async function loadHistory(userId: string, exerciseId: string, sessions = 3): Pr
     .map((we) => ({
       sets: we.sets
         .filter((s) => s.reps != null && s.weightKg != null)
-        .map((s) => ({ reps: s.reps!, weightKg: s.weightKg! })),
+        // rpe rides along: it is what tells the progression whether the top of
+        // the rep range was earned or survived.
+        .map((s) => ({ reps: s.reps!, weightKg: s.weightKg!, rpe: s.rpe })),
     }));
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { effectiveReps } from '../analytics.js';
 import {
   MODE_CONFIG,
   baseStepKg,
@@ -253,5 +254,103 @@ describe('plan templates carry loads written in some other grid', () => {
     expect(snapKg(16, 'kg')).toBe(15);
     expect(snapKg(11.3, 'kg')).toBe(12.5);
     expect(snapKg(22.5, 'kg')).toBe(22.5);
+  });
+});
+
+describe('effort ratings feed the prescription', () => {
+  /** A session of `n` sets at one weight, optionally rated. */
+  const sesh = (reps: number, weightKg: number, rpe?: number, n = 2) => ({
+    sets: Array.from({ length: n }, () => ({ reps, weightKg, rpe: rpe ?? null })),
+  });
+  const inc = incrementFor('barbell', 'hypertrophy', false, 'kg'); // 2.5
+
+  describe('effectiveReps: an unrated set is still assumed to be to failure', () => {
+    it('leaves unrated reps alone, which is what Epley always assumed', () => {
+      expect(effectiveReps(8, null)).toBe(8);
+      expect(effectiveReps(8, undefined)).toBe(8);
+    });
+
+    it('adds the reps in reserve the rating claims', () => {
+      expect(effectiveReps(8, 10)).toBe(8); // nothing left
+      expect(effectiveReps(8, 9)).toBe(9); // 1 left
+      expect(effectiveReps(8, 8)).toBe(10); // 2 left
+      expect(effectiveReps(8, 6)).toBe(12); // 4 left
+    });
+
+    it('caps at the rep count where the estimate stops meaning anything', () => {
+      expect(effectiveReps(12, 6)).toBe(12);
+      expect(effectiveReps(20, 8)).toBe(12);
+    });
+
+    it('never takes reps away, however the rating arrives', () => {
+      expect(effectiveReps(8, 11)).toBe(8);
+      expect(effectiveReps(8, 1)).toBe(12); // clamped to 4 in reserve
+    });
+  });
+
+  describe('the size of the jump follows the rating', () => {
+    it('adds one step unrated, exactly as before', () => {
+      const t = nextTarget([sesh(10, 60)], 'hypertrophy', 'compound', inc, 'kg');
+      expect(t.weightKg).toBe(62.5);
+    });
+
+    it('adds two steps when every top set was easy', () => {
+      const t = nextTarget([sesh(10, 60, 6)], 'hypertrophy', 'compound', inc, 'kg');
+      expect(t.weightKg).toBe(65);
+    });
+
+    it('holds the weight when the top of the range was a grind', () => {
+      const t = nextTarget([sesh(10, 60, 9)], 'hypertrophy', 'compound', inc, 'kg');
+      expect(t.weightKg).toBe(60);
+    });
+
+    it('takes the hardest of the top sets, not the kindest', () => {
+      // One set flew, the next was a grind. The grind decides.
+      const mixed = { sets: [{ reps: 10, weightKg: 60, rpe: 6 }, { reps: 10, weightKg: 60, rpe: 9 }] };
+      expect(nextTarget([mixed], 'hypertrophy', 'compound', inc, 'kg').weightKg).toBe(60);
+    });
+
+    it('does not add weight below the top of the range, however easy it felt', () => {
+      const t = nextTarget([sesh(7, 60, 6)], 'hypertrophy', 'compound', inc, 'kg');
+      expect(t.weightKg).toBe(60);
+    });
+  });
+
+  describe('stalls', () => {
+    it('still deloads after three flat sessions when nothing was rated', () => {
+      const flat = sesh(8, 60);
+      const t = nextTarget([flat, flat, flat], 'hypertrophy', 'compound', inc, 'kg');
+      expect(t.deload).toBe(true);
+      expect(t.weightKg).toBe(55);
+    });
+
+    it('deloads after only two sessions of grinding', () => {
+      const grind = sesh(8, 60, 10);
+      const t = nextTarget([grind, grind], 'hypertrophy', 'compound', inc, 'kg');
+      expect(t.deload).toBe(true);
+      expect(t.weightKg).toBe(55);
+    });
+
+    it('does not deload three flat sessions that all felt easy', () => {
+      const easy = sesh(8, 60, 6);
+      const t = nextTarget([easy, easy, easy], 'hypertrophy', 'compound', inc, 'kg');
+      expect(t.deload).toBe(false);
+    });
+
+    it('does not call it grinding when the second session improved', () => {
+      const t = nextTarget([sesh(8, 60, 10), sesh(9, 60, 10)], 'hypertrophy', 'compound', inc, 'kg');
+      expect(t.deload).toBe(false);
+    });
+  });
+
+  describe('the e1RM anchor', () => {
+    it('reads a rated set as the harder effort it was', () => {
+      // 8 x 60 at RPE 8 is a 10-rep effort: a higher e1RM, so a higher ceiling.
+      const rated = bestE1RM([sesh(8, 60, 8)]);
+      const unrated = bestE1RM([sesh(8, 60)]);
+      expect(rated).toBeGreaterThan(unrated);
+      expect(rated).toBeCloseTo(60 * (1 + 10 / 30), 5);
+      expect(unrated).toBeCloseTo(60 * (1 + 8 / 30), 5);
+    });
   });
 });

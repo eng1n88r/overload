@@ -6,6 +6,27 @@ export function epleyE1RM(weightKg: number, reps: number): number {
   return weightKg * (1 + reps / 30);
 }
 
+/** Highest rep count the Epley estimate stays meaningful at. */
+const E1RM_REP_CAP = 12;
+
+/**
+ * Reps the set was worth, rather than reps performed.
+ *
+ * Epley assumes every set was taken to failure. Most are not, so the estimate
+ * runs low and — worse — runs low by an amount that changes session to session,
+ * which is noise in the one number the whole prescription hangs off.
+ *
+ * An RPE rating is a reps-in-reserve claim (RIR = 10 − RPE), so it says how far
+ * from failure the set actually was: 8 reps at RPE 8 was a 10-rep effort. An
+ * unrated set is treated as RIR 0, which is exactly what this always assumed —
+ * so nothing about existing data changes, and rated data gets more accurate.
+ */
+export function effectiveReps(reps: number, rpe?: number | null): number {
+  // The scale runs 6–10; below that nobody can tell 4 reps in reserve from 5.
+  const rir = rpe == null ? 0 : Math.max(0, Math.min(4, 10 - rpe));
+  return Math.min(reps + rir, E1RM_REP_CAP);
+}
+
 /** Monday 00:00 UTC of the week containing `date`. */
 export function weekStart(date: Date): string {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -29,6 +50,7 @@ export function weekRange(from: string, to: string): string[] {
 interface SetWithMuscles {
   reps: number | null;
   weightKg: number | null;
+  rpe: number | null;
   isWarmup: boolean;
   multiplier: number;
   date: Date;
@@ -60,6 +82,7 @@ async function loadCompletedSets(userId: string, since?: Date): Promise<SetWithM
       for (const s of we.sets) {
         rows.push({
           reps: s.reps,
+          rpe: s.rpe,
           weightKg: s.weightKg,
           isWarmup: s.isWarmup,
           multiplier: s.multiplier,
@@ -160,7 +183,7 @@ export async function getE1RMSeries(userId: string, exerciseId: string) {
     let volume = 0;
     for (const s of we.sets) {
       if (s.isWarmup || !s.reps || !s.weightKg) continue;
-      const e = epleyE1RM(s.weightKg, Math.min(s.reps, 12));
+      const e = epleyE1RM(s.weightKg, effectiveReps(s.reps, s.rpe));
       volume += s.reps * s.weightKg * (s.multiplier || 1);
       if (e > best) {
         best = e;
@@ -198,7 +221,7 @@ export async function getPRs(userId: string, limit = 15) {
       });
     entry.sessions.add(day);
     entry.maxWeightKg = Math.max(entry.maxWeightKg, s.weightKg);
-    const e = epleyE1RM(s.weightKg, Math.min(s.reps, 12));
+    const e = epleyE1RM(s.weightKg, effectiveReps(s.reps, s.rpe));
     if (e > entry.bestE1rm) {
       entry.bestE1rm = e;
       entry.bestE1rmDate = day;

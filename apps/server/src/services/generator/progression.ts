@@ -20,15 +20,27 @@
 // deload. When history comes from a different rep zone (mode switch), the
 // e1RM anchor sets the weight instead of last session's load.
 
-import { epleyE1RM } from '../analytics.js';
+import { effectiveReps, epleyE1RM } from '../analytics.js';
 
 export const TRAINING_MODES = ['strength', 'hypertrophy', 'endurance', 'power'] as const;
 export type TrainingMode = (typeof TRAINING_MODES)[number];
 
 export interface SessionPerformance {
   /** Working sets of one past session, oldest session first in the array of sessions. */
-  sets: { reps: number; weightKg: number }[];
+  sets: { reps: number; weightKg: number; rpe?: number | null }[];
 }
+
+/**
+ * How the app reads an effort rating.
+ *
+ * RPE is a reps-in-reserve claim, so it answers the question the rep count
+ * alone cannot: was that the top of the range because it was earned, or
+ * because it was a grind? Two thresholds, deliberately far apart, because a
+ * self-reported number should only move the prescription when it is emphatic.
+ */
+const RPE_EASY = 6;      // 4 in reserve — under-loaded, take a double jump
+const RPE_HARD = 9;      // 1 in reserve — hold the weight, earn it clean
+const RPE_GRINDING = 9.5; // at or past failure two sessions running
 
 export interface RepRange {
   low: number;
@@ -165,14 +177,27 @@ function roundToStep(weight: number, step: number): number {
   return Math.round(weight / step) * step;
 }
 
-function sessionScore(s: SessionPerformance): { weight: number; minReps: number } | null {
+interface SessionScore {
+  weight: number;
+  minReps: number;
+  /** Hardest of the top-weight sets, or null when none were rated. The hardest
+   *  rather than the average: one easy set does not undo a grind. */
+  rpe: number | null;
+}
+
+function sessionScore(s: SessionPerformance): SessionScore | null {
   if (!s.sets.length) return null;
   const weight = Math.max(...s.sets.map((x) => x.weightKg));
   const topSets = s.sets.filter((x) => x.weightKg === weight);
-  return { weight, minReps: Math.min(...topSets.map((x) => x.reps)) };
+  const rated = topSets.map((x) => x.rpe).filter((r): r is number => r != null);
+  return {
+    weight,
+    minReps: Math.min(...topSets.map((x) => x.reps)),
+    rpe: rated.length ? Math.max(...rated) : null,
+  };
 }
 
-function improved(prev: { weight: number; minReps: number }, next: { weight: number; minReps: number }): boolean {
+function improved(prev: SessionScore, next: SessionScore): boolean {
   return next.weight > prev.weight || (next.weight === prev.weight && next.minReps > prev.minReps);
 }
 
@@ -183,7 +208,7 @@ export function bestE1RM(history: SessionPerformance[]): number {
   for (const s of history) {
     for (const set of s.sets) {
       if (set.weightKg > 0 && set.reps > 0) {
-        best = Math.max(best, epleyE1RM(set.weightKg, Math.min(set.reps, 12)));
+        best = Math.max(best, epleyE1RM(set.weightKg, effectiveReps(set.reps, set.rpe)));
       }
     }
   }
@@ -228,17 +253,33 @@ export function nextTarget(
     };
   }
 
+  const deloadTo = (): ProgressionTarget => ({
+    sets,
+    repsLow: range.low,
+    repsHigh: range.high,
+    weightKg: Math.max(0, roundToStep(last.weight * 0.9, step)),
+    deload: true,
+  });
+
+  // Grinding: two sessions at or past failure with nothing gained between them.
+  // Waiting for a third is another week of junk volume under a weight that is
+  // already too heavy, and the ratings say so plainly.
+  if (scores.length >= 2) {
+    const [a, b] = scores.slice(-2);
+    if (a.rpe != null && b.rpe != null && a.rpe >= RPE_GRINDING && b.rpe >= RPE_GRINDING && !improved(a, b)) {
+      return deloadTo();
+    }
+  }
+
   // Stalled: three consecutive sessions with no improvement.
   if (scores.length >= 3) {
     const [a, b, c] = scores.slice(-3);
     if (!improved(a, b) && !improved(b, c) && !improved(a, c)) {
-      return {
-        sets,
-        repsLow: range.low,
-        repsHigh: range.high,
-        weightKg: Math.max(0, roundToStep(last.weight * 0.9, step)),
-        deload: true,
-      };
+      // Unless all three felt easy. Flat and comfortable is not a stall — it is
+      // someone repeating a weight they never pushed, and cutting 10% off it
+      // takes load away from a lifter who needs more, not less.
+      const allEasy = [a, b, c].every((x) => x.rpe != null && x.rpe <= RPE_EASY + 1);
+      if (!allEasy) return deloadTo();
     }
   }
 
@@ -255,10 +296,16 @@ export function nextTarget(
     return { sets, repsLow: range.low, repsHigh: range.high, weightKg: anchor, deload: false };
   }
 
-  // Double progression within the zone.
+  // Double progression within the zone, with the rating deciding the size of
+  // the jump. Reps alone cannot tell a set that flew from one that nearly
+  // buried you, and those two deserve different weights next week.
   let weight: number;
   if (last.minReps >= range.high && increment > 0) {
-    weight = roundToStep(last.weight + increment, step);
+    const steps = last.rpe == null ? 1
+      : last.rpe >= RPE_HARD ? 0
+        : last.rpe <= RPE_EASY ? 2
+          : 1;
+    weight = roundToStep(last.weight + increment * steps, step);
   } else {
     weight = last.weight;
   }
