@@ -287,6 +287,52 @@ Weights anchor to the [Epley e1RM estimate](https://en.wikipedia.org/wiki/One-re
 (top of range on all sets → add load; 3 stalled sessions → −10% deload).
 Switching modes re-derives the weight from e1RM.
 
+## Effort ratings
+
+After you log a set the rest bar asks how hard it was. Tapping a number is optional — skip it and
+everything behaves exactly as it did before — but it is the difference between the app counting
+your reps and the app knowing what they cost.
+
+The scale is **reps in reserve**, not a feeling out of ten. Each value is a claim about how many
+more reps you had:
+
+| | reps left | means |
+|---|---|---|
+| **10** | 0 | nothing left — could not have done one more |
+| **9.5** | ~0 | no more reps, but you could have held a touch more weight |
+| **9** | 1 | one more, definitely |
+| **8.5** | 1–2 | certainly one more, probably not two |
+| **8** | 2 | two more |
+| **7** | 3 | three more |
+| **6** | 4 | four more |
+
+Halves exist only above 8 because that is where they change a decision. Lower down nobody can
+tell three reps in reserve from four, and the app treats 7 and 8 the same anyway.
+
+**What it changes.** Three things, all of which fall back to today's behaviour when a set is
+unrated:
+
+- **The 1RM estimate.** Epley assumes every set went to failure, so it reads low and by an amount
+  that shifts session to session. A rating fixes that: `8 × 60 kg` at RPE 8 is a 10-rep effort, so
+  **80 kg** rather than 76. An unrated set means 0 reps in reserve, which is precisely what the
+  estimate always assumed — so nothing already logged moves.
+- **The size of the jump**, once you reach the top of the rep range. From a 60 kg top set:
+
+  | rating | next session |
+  |---|---|
+  | 6 | 65 kg — two steps, you were under-loaded |
+  | 7, 8, 8.5 | 62.5 kg — one step, as usual |
+  | 9, 9.5, 10 | 60 kg — hold it, earn the reps clean first |
+  | unrated | 62.5 kg |
+
+  The hardest of your top-weight sets decides, not the average: one easy set does not undo a grind.
+- **Stalls, in both directions.** Two sessions at **9.5 or 10** with nothing gained deloads
+  immediately, rather than waiting out a third week under a weight that is already too heavy. And
+  three flat sessions that all felt **7 or easier** no longer deload at all — that is not a stall,
+  it is a lifter who never pushed, and cutting 10% is the wrong answer.
+
+Epley stops being meaningful past 12 reps, so on high-rep work a rating cannot raise the estimate.
+
 ## Notes
 
 - `data/` (personal exports) and `appdata/` (live database) are git-ignored.
