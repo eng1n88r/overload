@@ -180,7 +180,7 @@ as it always did.
 | rating | reps left in the tank |
 |---|---|
 | 10 | 0 — could not have done one more |
-| 9.5 | 0, but the bar wasn't quite the limit |
+| 9.5 | 0 — no more reps, but you could have added a little weight |
 | 9 | 1 |
 | 8.5 | 1–2 |
 | 8 | 2 |
