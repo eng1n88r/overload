@@ -22,6 +22,12 @@
   --#{$prefix}app-sidebar-menu-link-active-color: #{$app-sidebar-menu-link-active-color};
   --#{$prefix}app-sidebar-mobile-bg: #{$app-sidebar-mobile-bg};
   --#{$prefix}theme-bg-subtle: #{tint-color($theme, 80%)};
+  // The text color that sits on the accent. Every .theme-* class overrides it
+  // with color-contrast(); this is the default accent's value, which nothing
+  // emitted before — so with no theme class picked, buttons fell back to the
+  // inherited body color.
+  --#{$prefix}theme-color: #{$theme-color};
+  --#{$prefix}theme-color-rgb: #{to-rgb($theme-color)};
 }
 
 @if $enable-dark-mode {

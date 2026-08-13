@@ -20,6 +20,11 @@
 }
 
 @each $color, $value in $theme-colors {
+	// Not 'theme': that button must follow the runtime accent, and _extras.scss
+	// already points every --btn-* var at it. Compiling a literal variant here
+	// would land later in the cascade and pin the text white — unreadable the
+	// moment someone picks yellow or lime.
+	@if $color != 'theme' {
   .btn-#{$color} {
 		$bg:                 $value;
 		$border:             $value;
@@ -63,4 +68,5 @@
 			$disabledBg, $disabledBorder, $disabledTextColor
 		);
   }
+	}
 }
