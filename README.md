@@ -177,12 +177,15 @@ Double progression, bounded by the estimate:
 Ratings are reps in reserve, not a feeling out of ten. Optional — an unrated set behaves exactly
 as it always did.
 
-| rating | reps left | rating | reps left |
-|---|---|---|---|
-| 10 | 0 | 8 | 2 |
-| 9.5 | last rep, but the bar wasn't the limit | 7 | 3 |
-| 9 | 1 | 6 | 4 |
-| 8.5 | 1–2 | | |
+| rating | reps left in the tank |
+|---|---|
+| 10 | 0 — could not have done one more |
+| 9.5 | 0, but the bar wasn't quite the limit |
+| 9 | 1 |
+| 8.5 | 1–2 |
+| 8 | 2 |
+| 7 | 3 |
+| 6 | 4 |
 
 ### Recovery
 
