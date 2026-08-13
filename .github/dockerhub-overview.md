@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eng1n88r/overload/main/assets/banner.svg" alt="Overload — self-hosted workout builder, tracker &amp; training analytics" width="880">
+</p>
+
 # Overload
 
 Self-hosted workout builder, tracker & training analytics. Build training plans, log sets at the
