@@ -180,7 +180,7 @@ as it always did.
 | rating | reps left in the tank |
 |---|---|
 | 10 | 0 — could not have done one more |
-| 9.5 | maybe one more — wouldn't bet on it |
+| 9.5 | maybe one more |
 | 9 | 1 |
 | 8.5 | 1–2 |
 | 8 | 2 |
