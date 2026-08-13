@@ -389,7 +389,9 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
          the alert background is solid, which a panel floating over scrolling
          content needs. py-2 keeps the space above the label and below the
          chips equal. -->
-    <div v-if="pendingRpe" class="alert alert-info py-2 mb-3">
+    <!-- pb-3 over pt-2: the label's line-height pads the top for free, the
+         chips are solid blocks that sit flush — equal padding reads cut off. -->
+    <div v-if="pendingRpe" class="alert alert-info pt-2 pb-3 mb-3">
       <div class="small text-inverse text-opacity-50 mb-2">how hard was that set?</div>
       <div class="effort-scale">
         <button
