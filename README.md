@@ -12,43 +12,45 @@ an MCP server so Claude keeps working with the training data after the code is d
 
 ## Screenshots
 
+<sub>All screenshots use a generated demo dataset, not anyone's real training log. Sections
+follow the app's menu.</sub>
+
+<details>
+<summary><b>Dashboard</b> — the week at a glance: volume, sets, recovery, what's next</summary>
 <p align="center">
   <img src="assets/screenshots/desktop-dashboard.jpg" alt="Dashboard: weekly volume, sets per muscle, muscle recovery, recent and upcoming sessions" width="900">
 </p>
-
-**At the gym.** The session clock and rest timer keep running while the screen is off or you
-navigate away; every set you have already logged stays on screen while you add the next one.
-
 <p align="center">
-  <img src="assets/screenshots/mobile-live.jpg" alt="Logging a set mid-session: rest timer counting down and the effort-rating prompt open" width="245">
-  <img src="assets/screenshots/mobile-analytics.jpg" alt="Analytics on a phone" width="245">
-  <img src="assets/screenshots/mobile-workouts.jpg" alt="Workout list, upcoming and history" width="245">
+  <img src="assets/screenshots/mobile-dashboard.jpg" alt="Dashboard on a phone" width="245">
 </p>
+</details>
 
-**Analytics.** Sessions against the target your plan set, weekly volume, estimated 1RM per lift,
-and set counts per muscle.
-
+<details>
+<summary><b>Analytics</b> — sessions vs plan target, weekly volume, strength trend per lift, sets per muscle</summary>
 <p align="center">
   <img src="assets/screenshots/desktop-analytics.jpg" alt="Analytics: sessions per week, weekly volume, strength trend, sets per muscle, personal records" width="900">
 </p>
-
-**881 exercises** — muscles worked and equipment for all of them, photos and instructions for
-all but a handful.
-
 <p align="center">
-  <img src="assets/screenshots/desktop-exercises.jpg" alt="Exercise catalog with search and muscle, equipment and type filters" width="900">
+  <img src="assets/screenshots/mobile-analytics.jpg" alt="Analytics on a phone" width="245">
 </p>
+</details>
 
 <details>
-<summary><b>Every other screen</b> — plan, session detail, body, nutrition, settings</summary>
-
-<br>
-
-The plan drives generation: four days, target muscles per day, deload weeks, and notes the
-generator reads back to you.
-
+<summary><b>Plan</b> — training days, target muscles, deload weeks, notes the generator reads back</summary>
 <p align="center">
   <img src="assets/screenshots/desktop-plan.jpg" alt="Training plan with four days and plan notes" width="900">
+</p>
+</details>
+
+<details>
+<summary><b>Workouts</b> — the live logger: session clock, rest timer, effort rating after each set</summary>
+
+The session clock and rest timer keep running while the screen is off or you navigate away;
+every set already logged stays on screen while you add the next one.
+
+<p align="center">
+  <img src="assets/screenshots/mobile-live.jpg" alt="Logging a set mid-session: rest timer counting down and the effort-rating prompt open" width="245">
+  <img src="assets/screenshots/mobile-workouts.jpg" alt="Workout list, upcoming and history" width="245">
 </p>
 
 A finished session, with warm-up sets marked and excluded from volume.
@@ -56,33 +58,38 @@ A finished session, with warm-up sets marked and excluded from volume.
 <p align="center">
   <img src="assets/screenshots/desktop-workout.jpg" alt="Completed workout showing every set" width="900">
 </p>
+</details>
 
-Weigh-ins with a 7-day average, plus any measurement you want to track.
+<details>
+<summary><b>Exercises</b> — 881 in the catalog, with photos, instructions, muscles and equipment</summary>
+<p align="center">
+  <img src="assets/screenshots/desktop-exercises.jpg" alt="Exercise catalog with search and muscle, equipment and type filters" width="900">
+</p>
+</details>
 
+<details>
+<summary><b>Body</b> — weigh-ins with a 7-day average, plus any measurement you want to track</summary>
 <p align="center">
   <img src="assets/screenshots/desktop-body.jpg" alt="Body page: weight trend and measurements" width="900">
 </p>
+</details>
 
-Calories and macros, logged once a day.
-
+<details>
+<summary><b>Nutrition</b> — calories and macros, logged once a day</summary>
 <p align="center">
   <img src="assets/screenshots/desktop-nutrition.jpg" alt="Nutrition: daily macro log with 30-day macro and calorie charts" width="900">
 </p>
+<p align="center">
+  <img src="assets/screenshots/mobile-nutrition.jpg" alt="Nutrition log on a phone" width="245">
+</p>
+</details>
 
-Units, equipment, API keys for Claude, and user management for the admin.
-
+<details>
+<summary><b>Settings</b> — units, equipment, API keys for Claude, user management</summary>
 <p align="center">
   <img src="assets/screenshots/desktop-settings.jpg" alt="Settings: account, training defaults, equipment, API keys, users" width="900">
 </p>
-
-<p align="center">
-  <img src="assets/screenshots/mobile-dashboard.jpg" alt="Dashboard on a phone" width="245">
-  <img src="assets/screenshots/mobile-nutrition.jpg" alt="Nutrition log on a phone" width="245">
-</p>
-
 </details>
-
-<sub>Screenshots use a generated demo dataset, not anyone's real training log.</sub>
 
 ## Using the app
 
@@ -123,6 +130,75 @@ plan around both, and the next generated session comes off the new one.
 - **Body**: log your weight each morning; add measurements like waist or arms.
 - **Nutrition**: log calories and protein/carbs/fat once a day.
 - **Dashboard** and **Analytics** show your progress: how much you lift, how strong you're getting, which muscles are recovered.
+
+## How it works
+
+All decisions are deterministic rules in `apps/server/src/services` — no model, no cloud, same
+inputs → same plan. Claude can override any of it over MCP; these are the defaults.
+
+### Training modes
+
+Default in Settings; override per plan day or per generate call.
+
+| Mode | Reps (compound / isolation) | Load | Sets | Rest |
+|---|---|---|---|---|
+| strength | 3–6 / 6–10 | ~95% of rep-max + warm-up ramp | 5 / 3 | 3:00 |
+| hypertrophy (default) | 6–10 / 10–15 | ~95% of rep-max | 3 / 3 | 1:30 |
+| endurance | 15–20 / 15–25 | ~90% of rep-max | 3 / 2 | 1:00 |
+| power | 3–5, explosive compounds only | 50% e1RM, moved fast | 4 | 3:00 |
+
+### Estimating strength
+
+- Every working set yields an [Epley](https://en.wikipedia.org/wiki/One-repetition_maximum#Epley_formula) estimate: `e1RM = weight × (1 + reps / 30)`, reps capped at 12.
+- An effort rating adjusts the reps first: rated RPE 8 with 8 reps counts as a 10-rep effort
+  (`reps + reps-in-reserve`). Unrated sets count as taken to failure — the classic assumption.
+- The best estimate across the last 3 sessions anchors the prescription.
+
+### Prescribing the next weight
+
+Double progression, bounded by the estimate:
+
+1. Top of the rep range reached on all top-weight sets → add one increment; otherwise repeat the weight.
+2. The effort rating sizes the jump: ≤ 6 → two increments; 9 or harder → hold; unrated or 7–8.5 → one.
+3. Never above the weight where the *bottom* of the range would be a max effort; never below a weight already handled.
+4. Increments: barbell/machine/cable 5 lb or 2.5 kg (doubled for lower-body strength work), dumbbells 5 lb or 2 kg, bodyweight and bands 0.
+5. Everything is rounded onto the lifter's own plate grid — an lb lifter gets whole 5 lb steps, not converted kg.
+6. Strength mode adds a 40 / 60 / 80% warm-up ramp when the working weight is ≥ 40 kg.
+
+### Stalls and deloads
+
+- 3 sessions with no new weight or reps → −10%, rebuilt from clean reps.
+- 2 sessions rated 9.5+ with nothing gained → −10% immediately; grinding is not worth a third week.
+- 3 flat sessions all rated ≤ 7 → no deload; that is a weight never pushed, not a stall.
+- Plan deload weeks run at 60% of prescribed sets, −10% load.
+
+### Effort scale
+
+Ratings are reps in reserve, not a feeling out of ten. Optional — an unrated set behaves exactly
+as it always did.
+
+| rating | reps left | rating | reps left |
+|---|---|---|---|
+| 10 | 0 | 8 | 2 |
+| 9.5 | last rep, but the bar wasn't the limit | 7 | 3 |
+| 9 | 1 | 6 | 4 |
+| 8.5 | 1–2 | | |
+
+### Recovery
+
+Per-muscle fatigue is a sum of exponentially decaying set-equivalents: a primary-muscle working
+set adds 1, a secondary 0.5, and the contribution halves-off with a time constant of 48 h for
+large muscles (quads, hamstrings, glutes, back, chest) and 36 h for the rest. A muscle is fresh
+below 2.0 set-equivalents. Freestyle generation picks the freshest muscle group; the dashboard
+recovery panel is the same numbers.
+
+### Counting rules
+
+- Volume = reps × weight × multiplier. The multiplier is implements × sides
+  (a pair of dumbbells used one leg at a time = ×4) and is seeded per exercise, editable per set.
+- Warm-up sets are excluded from volume, records and estimates everywhere.
+- Weekly sets per muscle: primary counts 1, secondary 0.5.
+- Weekly charts zero-fill gaps — a skipped week shows as zero, not as a missing bar.
 
 ## Run your own server
 
@@ -310,75 +386,6 @@ Open http://localhost:5173 and register.
 - Release: `npm version <x.y.z> -ws --include-workspace-root --no-git-tag-version`, add a
   changelog entry, commit, tag `v<x.y.z>`, push — the tag builds and publishes the Docker image
 - Layout: `apps/server` (Fastify + Prisma + SQLite), `apps/web` (Vue 3 + Vite, HUD theme), `packages/shared` (zod schemas)
-
-## How it works
-
-All decisions are deterministic rules in `apps/server/src/services` — no model, no cloud, same
-inputs → same plan. Claude can override any of it over MCP; these are the defaults.
-
-### Training modes
-
-Default in Settings; override per plan day or per generate call.
-
-| Mode | Reps (compound / isolation) | Load | Sets | Rest |
-|---|---|---|---|---|
-| strength | 3–6 / 6–10 | ~95% of rep-max + warm-up ramp | 5 / 3 | 3:00 |
-| hypertrophy (default) | 6–10 / 10–15 | ~95% of rep-max | 3 / 3 | 1:30 |
-| endurance | 15–20 / 15–25 | ~90% of rep-max | 3 / 2 | 1:00 |
-| power | 3–5, explosive compounds only | 50% e1RM, moved fast | 4 | 3:00 |
-
-### Estimating strength
-
-- Every working set yields an [Epley](https://en.wikipedia.org/wiki/One-repetition_maximum#Epley_formula) estimate: `e1RM = weight × (1 + reps / 30)`, reps capped at 12.
-- An effort rating adjusts the reps first: rated RPE 8 with 8 reps counts as a 10-rep effort
-  (`reps + reps-in-reserve`). Unrated sets count as taken to failure — the classic assumption.
-- The best estimate across the last 3 sessions anchors the prescription.
-
-### Prescribing the next weight
-
-Double progression, bounded by the estimate:
-
-1. Top of the rep range reached on all top-weight sets → add one increment; otherwise repeat the weight.
-2. The effort rating sizes the jump: ≤ 6 → two increments; 9 or harder → hold; unrated or 7–8.5 → one.
-3. Never above the weight where the *bottom* of the range would be a max effort; never below a weight already handled.
-4. Increments: barbell/machine/cable 5 lb or 2.5 kg (doubled for lower-body strength work), dumbbells 5 lb or 2 kg, bodyweight and bands 0.
-5. Everything is rounded onto the lifter's own plate grid — an lb lifter gets whole 5 lb steps, not converted kg.
-6. Strength mode adds a 40 / 60 / 80% warm-up ramp when the working weight is ≥ 40 kg.
-
-### Stalls and deloads
-
-- 3 sessions with no new weight or reps → −10%, rebuilt from clean reps.
-- 2 sessions rated 9.5+ with nothing gained → −10% immediately; grinding is not worth a third week.
-- 3 flat sessions all rated ≤ 7 → no deload; that is a weight never pushed, not a stall.
-- Plan deload weeks run at 60% of prescribed sets, −10% load.
-
-### Effort scale
-
-Ratings are reps in reserve, not a feeling out of ten. Optional — an unrated set behaves exactly
-as it always did.
-
-| rating | reps left | rating | reps left |
-|---|---|---|---|
-| 10 | 0 | 8 | 2 |
-| 9.5 | last rep, but the bar wasn't the limit | 7 | 3 |
-| 9 | 1 | 6 | 4 |
-| 8.5 | 1–2 | | |
-
-### Recovery
-
-Per-muscle fatigue is a sum of exponentially decaying set-equivalents: a primary-muscle working
-set adds 1, a secondary 0.5, and the contribution halves-off with a time constant of 48 h for
-large muscles (quads, hamstrings, glutes, back, chest) and 36 h for the rest. A muscle is fresh
-below 2.0 set-equivalents. Freestyle generation picks the freshest muscle group; the dashboard
-recovery panel is the same numbers.
-
-### Counting rules
-
-- Volume = reps × weight × multiplier. The multiplier is implements × sides
-  (a pair of dumbbells used one leg at a time = ×4) and is seeded per exercise, editable per set.
-- Warm-up sets are excluded from volume, records and estimates everywhere.
-- Weekly sets per muscle: primary counts 1, secondary 0.5.
-- Weekly charts zero-fill gaps — a skipped week shows as zero, not as a missing bar.
 
 ## Notes
 
