@@ -385,25 +385,25 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
       <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
     </div>
 
-    <!-- Cards are transparent; pinned over scrolling content this one needs a
-         solid backdrop. -->
-    <Card v-if="pendingRpe" class="mb-3" style="background-color: var(--bs-body-bg)">
-      <CardBody class="py-2">
-        <div class="text-inverse text-opacity-50 small mb-1">how hard was that set?</div>
-        <div class="effort-scale">
-          <button
-            v-for="n in RPE_SCALE"
-            :key="n"
-            type="button"
-            class="btn btn-sm"
-            :class="pendingRpe.value === n ? 'btn-theme' : 'btn-outline-secondary'"
-            :aria-pressed="pendingRpe.value === n"
-            :title="`RPE ${n}`"
-            @click="rateSet(n)"
-          >{{ n }}</button>
-        </div>
-      </CardBody>
-    </Card>
+    <!-- Same alert styling as the timer above it: the two pin as one unit, and
+         the alert background is solid, which a panel floating over scrolling
+         content needs. py-2 keeps the space above the label and below the
+         chips equal. -->
+    <div v-if="pendingRpe" class="alert alert-info py-2 mb-3">
+      <div class="small text-inverse text-opacity-50 mb-2">how hard was that set?</div>
+      <div class="effort-scale">
+        <button
+          v-for="n in RPE_SCALE"
+          :key="n"
+          type="button"
+          class="btn btn-sm"
+          :class="pendingRpe.value === n ? 'btn-theme' : 'btn-outline-secondary'"
+          :aria-pressed="pendingRpe.value === n"
+          :title="`RPE ${n}`"
+          @click="rateSet(n)"
+        >{{ n }}</button>
+      </div>
+    </div>
   </div>
 
   <div class="row g-3">
