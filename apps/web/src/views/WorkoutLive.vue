@@ -368,37 +368,43 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
     </div>
   </div>
 
+  <!-- Rest bar and the rating prompt pin together: a set is usually logged from
+       an exercise far down the page, and a prompt sitting in flow at the top is
+       a prompt nobody sees. -->
   <div
     v-if="restLeft > 0"
-    class="alert alert-info d-flex align-items-center py-2 sticky-top"
+    class="sticky-top"
     style="z-index: 1020; top: calc(var(--bs-app-header-height, 52px) + 8px)"
   >
-    <i class="ti ti-hourglass me-2"></i>
-    <strong class="me-2 font-monospace">{{ fmtClock(restLeft) }}</strong>
-    <div class="progress flex-grow-1 mx-2" style="height: 6px">
-      <div class="progress-bar bg-theme" :style="{ width: (restLeft / restTotal) * 100 + '%' }"></div>
-    </div>
-    <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
-  </div>
-
-  <!-- Rides the rest bar: shown only while resting, gone when rest ends. -->
-  <Card v-if="restLeft > 0 && pendingRpe" class="mb-3">
-    <CardBody class="py-2">
-      <div class="text-inverse text-opacity-50 small mb-1">how hard was that set?</div>
-      <div class="effort-scale">
-        <button
-          v-for="n in RPE_SCALE"
-          :key="n"
-          type="button"
-          class="btn btn-sm"
-          :class="pendingRpe.value === n ? 'btn-theme' : 'btn-outline-secondary'"
-          :aria-pressed="pendingRpe.value === n"
-          :title="`RPE ${n}`"
-          @click="rateSet(n)"
-        >{{ n }}</button>
+    <div class="alert alert-info d-flex align-items-center py-2" :class="pendingRpe ? 'mb-2' : 'mb-3'">
+      <i class="ti ti-hourglass me-2"></i>
+      <strong class="me-2 font-monospace">{{ fmtClock(restLeft) }}</strong>
+      <div class="progress flex-grow-1 mx-2" style="height: 6px">
+        <div class="progress-bar bg-theme" :style="{ width: (restLeft / restTotal) * 100 + '%' }"></div>
       </div>
-    </CardBody>
-  </Card>
+      <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
+    </div>
+
+    <!-- Cards are transparent; pinned over scrolling content this one needs a
+         solid backdrop. -->
+    <Card v-if="pendingRpe" class="mb-3" style="background-color: var(--bs-body-bg)">
+      <CardBody class="py-2">
+        <div class="text-inverse text-opacity-50 small mb-1">how hard was that set?</div>
+        <div class="effort-scale">
+          <button
+            v-for="n in RPE_SCALE"
+            :key="n"
+            type="button"
+            class="btn btn-sm"
+            :class="pendingRpe.value === n ? 'btn-theme' : 'btn-outline-secondary'"
+            :aria-pressed="pendingRpe.value === n"
+            :title="`RPE ${n}`"
+            @click="rateSet(n)"
+          >{{ n }}</button>
+        </div>
+      </CardBody>
+    </Card>
+  </div>
 
   <div class="row g-3">
     <div v-for="we in exercises" :key="we.id" class="col-xl-6">
