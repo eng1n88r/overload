@@ -94,12 +94,13 @@ A finished session, with warm-up sets marked and excluded from volume.
 ## Using the app
 
 **First time**
-1. Open the app in your browser and tap **Sign up**. The first account becomes the admin; after that, sign-ups are closed.
-2. Go to **Settings**:
+1. Get a server running — follow [Installation](#installation) below.
+2. Open the app in your browser and tap **Sign up**. The first account becomes the admin; after that, sign-ups are closed.
+3. Go to **Settings**:
    - Pick **kg or lb**.
    - Pick your **training mode** (leave "Hypertrophy" if unsure).
    - Check the **equipment you have**. Leave everything unchecked if you train in a full gym.
-3. Adding family? As admin, use **Settings → Users (Admin)** to add accounts, reset passwords, delete a user with all their data, or temporarily reopen sign-ups.
+4. Adding family? As admin, use **Settings → Users (Admin)** to add accounts, reset passwords, delete a user with all their data, or temporarily reopen sign-ups.
 
 **Get a plan** — either write one yourself in **Plan**, or let Claude write it for you.
 
@@ -203,7 +204,7 @@ recovery panel is the same numbers.
 - Weekly sets per muscle: primary counts 1, secondary 0.5.
 - Weekly charts zero-fill gaps — a skipped week shows as zero, not as a missing bar.
 
-## Run your own server
+## Installation
 
 ### From the published image
 
@@ -296,7 +297,7 @@ is still there.
   Nothing about the app assumes a supervisor — it is one long-lived Node process.
 - Back up `appdata/overload.db`. Copying the file while the server is stopped is enough.
 
-## Claude / MCP
+### Claude / MCP
 
 1. In the app: **Settings → API Keys → Create key** (`ovl_...`). Keys are scoped to the user who made them.
 2. Connect Claude Code:
