@@ -244,19 +244,17 @@ function setDuration(we: LiveExercise, value: number | null) {
 }
 
 /**
- * The set awaiting an effort rating.
- *
  * RPE is asked after the set rather than before it, because that is when you
- * know the answer — and during the rest that follows, when the screen is
- * otherwise just a countdown. Nothing is added to the logging row, and a set
- * left unrated logs exactly as it did before.
+ * know the answer. The chips open inline under the row the set just landed on
+ * — right where the finger already is — and a set left unrated logs exactly
+ * as it did before.
  */
 // Halves only above 8: near failure the difference between "2 left" and "1-2
 // left" is the one that changes next week's weight, and below that nobody can
 // tell the halves apart anyway.
 const RPE_SCALE = [6, 7, 8, 8.5, 9, 9.5, 10];
-const pendingRpe = ref<{ weId: string; setId: string; value: number | null } | null>(null);
-/** Set whose row was tapped to rate or re-rate it, away from the rest prompt. */
+/** Set whose inline rating chips are open — auto-opened by logging a set, or
+ *  by tapping any logged row to rate or correct it later. */
 const rpeEditing = ref<string | null>(null);
 
 /** Tapping the number already chosen clears it — the way back from a mis-tap. */
@@ -264,26 +262,16 @@ async function writeRpe(weId: string, setId: string, current: number | null, val
   const next = current === value ? null : value;
   const row = exercises.value.find((x) => x.id === weId)?.sets.find((st) => st.id === setId);
   if (row) row.rpe = next;
-  if (pendingRpe.value?.setId === setId) pendingRpe.value.value = next;
   // Answered: let the choice register, then get out of the way. Clearing is not
   // an answer, so that leaves the panel open to pick another number.
   if (next != null) {
     setTimeout(() => {
-      if (pendingRpe.value?.setId === setId) pendingRpe.value = null;
       if (rpeEditing.value === setId) rpeEditing.value = null;
     }, 700);
   }
   await api.patch(`/workouts/${workoutId}/exercises/${weId}/sets/${setId}`, { rpe: next });
 }
 
-function rateSet(value: number) {
-  const p = pendingRpe.value;
-  if (p) void writeRpe(p.weId, p.setId, p.value, value);
-}
-
-// The rest prompt only exists while a rest runs, so a set logged after Skip —
-// often the last of an exercise — would never be asked about. The row itself
-// is the fallback, and doubles as the way to correct a rating later.
 function toggleRpeRow(setId: string) {
   rpeEditing.value = rpeEditing.value === setId ? null : setId;
 }
@@ -323,15 +311,10 @@ async function logSet(we: LiveExercise) {
   }
   // Rest is the gap between efforts. There is no such gap after cardio — a
   // 1:00 countdown following a 35-minute walk is a clock for nothing.
-  if (mode !== 'cardio') {
-    startRest();
-    // Warm-ups are not efforts worth rating, and the prompt rides the rest bar.
-    pendingRpe.value = wasWarmup || !created?.set?.id
-      ? null
-      : { weId: we.id, setId: created.set.id, value: null };
-  } else {
-    pendingRpe.value = null;
-  }
+  if (mode !== 'cardio') startRest();
+  // The new row opens its rating chips right where the finger already is.
+  // Warm-ups are not efforts worth rating.
+  rpeEditing.value = mode !== 'cardio' && !wasWarmup && created?.set?.id ? created.set.id : null;
   const { data } = await api.get(`/workouts/${workoutId}`);
   const fresh = data.workout.exercises.find((x: Omit<LiveExercise, 'input'>) => x.id === we.id);
   if (fresh) we.sets = fresh.sets;
@@ -368,44 +351,17 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
     </div>
   </div>
 
-  <!-- Rest bar and the rating prompt pin together: a set is usually logged from
-       an exercise far down the page, and a prompt sitting in flow at the top is
-       a prompt nobody sees. -->
   <div
     v-if="restLeft > 0"
-    class="sticky-top"
+    class="alert alert-info d-flex align-items-center py-2 sticky-top mb-3"
     style="z-index: 1020; top: calc(var(--bs-app-header-height, 52px) + 8px)"
   >
-    <div class="alert alert-info d-flex align-items-center py-2" :class="pendingRpe ? 'mb-2' : 'mb-3'">
-      <i class="ti ti-hourglass me-2"></i>
-      <strong class="me-2 font-monospace">{{ fmtClock(restLeft) }}</strong>
-      <div class="progress flex-grow-1 mx-2" style="height: 6px">
-        <div class="progress-bar bg-theme" :style="{ width: (restLeft / restTotal) * 100 + '%' }"></div>
-      </div>
-      <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
+    <i class="ti ti-hourglass me-2"></i>
+    <strong class="me-2 font-monospace">{{ fmtClock(restLeft) }}</strong>
+    <div class="progress flex-grow-1 mx-2" style="height: 6px">
+      <div class="progress-bar bg-theme" :style="{ width: (restLeft / restTotal) * 100 + '%' }"></div>
     </div>
-
-    <!-- Same alert styling as the timer above it: the two pin as one unit, and
-         the alert background is solid, which a panel floating over scrolling
-         content needs. py-2 keeps the space above the label and below the
-         chips equal. -->
-    <!-- pb-3 over pt-2: the label's line-height pads the top for free, the
-         chips are solid blocks that sit flush — equal padding reads cut off. -->
-    <div v-if="pendingRpe" class="alert alert-info pt-2 pb-3 mb-3">
-      <div class="small text-inverse text-opacity-50 mb-2">how hard was that set?</div>
-      <div class="effort-scale">
-        <button
-          v-for="n in RPE_SCALE"
-          :key="n"
-          type="button"
-          class="btn btn-sm"
-          :class="pendingRpe.value === n ? 'btn-theme' : 'btn-outline-secondary'"
-          :aria-pressed="pendingRpe.value === n"
-          :title="`RPE ${n}`"
-          @click="rateSet(n)"
-        >{{ n }}</button>
-      </div>
-    </div>
+    <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
   </div>
 
   <div class="row g-3">
