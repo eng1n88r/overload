@@ -479,6 +479,23 @@ describe('workouts', () => {
 
 describe('analytics', () => {
   it('computes the dashboard from logged data', async () => {
+    // The dashboard's muscle panel looks back 4 weeks from *now*, while the
+    // suite's other fixtures sit on fixed 2026-07 dates — which aged out of
+    // that window and started failing on the calendar, not on a code change.
+    // This fixture is pinned to the clock instead, and removed afterwards so
+    // the fixed-date arithmetic in later tests stays untouched.
+    const recent = await app.inject({
+      method: 'POST',
+      url: '/api/v1/workouts',
+      cookies: { ovl_session: sessionCookie },
+      payload: {
+        date: new Date(Date.now() - 2 * 864e5).toISOString(),
+        status: 'completed',
+        exercises: [{ exerciseId: 'Test_Bench_Press', sets: [{ reps: 5, weightKg: 40 }] }],
+      },
+    });
+    expect(recent.statusCode).toBe(200);
+
     const res = await app.inject({
       method: 'GET',
       url: '/api/v1/analytics/dashboard',
@@ -487,10 +504,18 @@ describe('analytics', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.weeklyVolume.length).toBeGreaterThan(0);
-    // 10x60 + 8x65 + 6x70 (warmup excluded) on week of 2026-07-20
+    // 10x60 + 8x65 + 6x70 (warmup excluded) on week of 2026-07-20 — the first
+    // trained week on the axis, unaffected by the recent fixture above.
     expect(body.weeklyVolume[0].volumeKg).toBe(10 * 60 + 8 * 65 + 6 * 70);
     expect(body.muscleWeeklySets.find((m: { muscle: string }) => m.muscle === 'chest')).toBeDefined();
     expect(body.recovery.length).toBeGreaterThan(0);
+
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/workouts/${recent.json().workout.id}`,
+      cookies: { ovl_session: sessionCookie },
+    });
+    expect(del.statusCode).toBe(200);
   });
 
   it('reports untrained weeks as zeros on a gap-free shared axis', async () => {
