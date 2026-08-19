@@ -420,6 +420,17 @@ none of it is our work.
 
 ## Changelog
 
+### 0.2.1
+
+- Effort rating chips open inline under the set you just logged, right where your thumb is —
+  the pinned prompt at the top of the page is gone.
+- Theme buttons are readable on bright accents: black text on yellow, lime and grey instead of
+  white-on-bright.
+- README: Installation section gathers Docker, source and Claude/MCP setup; effort scale shown
+  as one column.
+- Known issue [#1](https://github.com/eng1n88r/overload/issues/1): the live session timer can
+  silently reset if a session is left open and reopened much later.
+
 ### 0.2.0
 
 - Effort ratings (RPE): asked on the rest bar after each set, tap any logged set to rate or fix
