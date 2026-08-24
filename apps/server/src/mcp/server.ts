@@ -562,6 +562,8 @@ export function buildMcpServer(user: User): McpServer {
           ...(body.date !== undefined ? { date: new Date(body.date) } : {}),
           ...(body.name !== undefined ? { name: body.name } : {}),
           ...(body.status !== undefined ? { status: body.status } : {}),
+          // A workout going live through MCP gets its start recorded too.
+          ...(body.status === 'in_progress' && !existing.startedAt ? { startedAt: new Date() } : {}),
           ...(body.mode !== undefined ? { mode: body.mode } : {}),
           ...(body.notes !== undefined ? { notes: body.notes } : {}),
           ...(body.durationSec !== undefined ? { durationSec: body.durationSec } : {}),

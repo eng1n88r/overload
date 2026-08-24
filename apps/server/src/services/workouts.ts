@@ -25,6 +25,7 @@ export function serializeWorkout(w: WorkoutFull) {
     externalId: w.externalId,
     notes: w.notes,
     durationSec: w.durationSec,
+    startedAt: w.startedAt?.toISOString() ?? null,
     exercises: w.exercises.map((we) => ({
       id: we.id,
       order: we.order,

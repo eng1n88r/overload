@@ -477,6 +477,122 @@ describe('workouts', () => {
   });
 });
 
+describe('live session clock', () => {
+  // Issue #1: session timing lived only in localStorage; a browser that lost
+  // it completed a ~40-minute walk as 16 seconds and the server believed it.
+  // Now /start stamps Workout.startedAt and completion cross-checks it.
+  const cookies = () => ({ ovl_session: sessionCookie });
+
+  async function createStarted(externalId: string, agoMs?: number): Promise<string> {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/workouts',
+      cookies: cookies(),
+      payload: { date: '2026-07-22', status: 'planned', externalId, exercises: [] },
+    });
+    expect(created.statusCode).toBe(200);
+    const id = created.json().workout.id as string;
+    const started = await app.inject({ method: 'POST', url: `/api/v1/workouts/${id}/start`, cookies: cookies() });
+    expect(started.statusCode).toBe(200);
+    if (agoMs != null) {
+      // Backdate the stamp directly — the API (correctly) offers no way to.
+      await prisma.workout.update({ where: { id }, data: { startedAt: new Date(Date.now() - agoMs) } });
+    }
+    return id;
+  }
+  async function complete(id: string, payload: object) {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/workouts/${id}/complete`,
+      cookies: cookies(),
+      payload,
+    });
+    expect(res.statusCode).toBe(200);
+    return res.json().workout;
+  }
+  async function remove(id: string) {
+    // keep later aggregate assertions stable
+    await app.inject({ method: 'DELETE', url: `/api/v1/workouts/${id}`, cookies: cookies() });
+  }
+
+  it('start stamps startedAt and returns it', async () => {
+    const before = Date.now();
+    const id = await createStarted('it-clock-start');
+    const res = await app.inject({ method: 'GET', url: `/api/v1/workouts/${id}`, cookies: cookies() });
+    const w = res.json().workout;
+    expect(w.status).toBe('in_progress');
+    const stamped = Date.parse(w.startedAt);
+    expect(stamped).toBeGreaterThanOrEqual(before - 1000);
+    expect(stamped).toBeLessThanOrEqual(Date.now() + 1000);
+    await remove(id);
+  });
+
+  it('completion believes the server clock over an implausible client one', async () => {
+    // the bug's exact shape: client timer reset, says 16 s; session is 40 min old
+    const id = await createStarted('it-clock-implausible', 40 * 60 * 1000);
+    const w = await complete(id, { durationSec: 16 });
+    expect(w.durationSec).toBeGreaterThanOrEqual(40 * 60 - 5);
+    expect(w.durationSec).toBeLessThanOrEqual(40 * 60 + 120);
+    await remove(id);
+  });
+
+  it('completion accepts a client duration within tolerance of the server clock', async () => {
+    const id = await createStarted('it-clock-tolerated', 10 * 60 * 1000);
+    const w = await complete(id, { durationSec: 630 });
+    expect(w.durationSec).toBe(630);
+    await remove(id);
+  });
+
+  it('completion without a client duration falls back to the server clock', async () => {
+    const id = await createStarted('it-clock-fallback', 5 * 60 * 1000);
+    const w = await complete(id, {});
+    expect(w.durationSec).toBeGreaterThanOrEqual(5 * 60 - 5);
+    expect(w.durationSec).toBeLessThanOrEqual(5 * 60 + 60);
+    await remove(id);
+  });
+
+  it('a workout never started still takes the client duration as-is', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/workouts',
+      cookies: cookies(),
+      payload: { date: '2026-07-22', status: 'planned', externalId: 'it-clock-unstarted', exercises: [] },
+    });
+    const id = created.json().workout.id as string;
+    const w = await complete(id, { durationSec: 999 });
+    expect(w.durationSec).toBe(999);
+    expect(w.startedAt).toBeNull();
+    await remove(id);
+  });
+
+  it('PATCH to in_progress stamps startedAt once', async () => {
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/v1/workouts',
+      cookies: cookies(),
+      payload: { date: '2026-07-22', status: 'planned', externalId: 'it-clock-patch', exercises: [] },
+    });
+    const id = created.json().workout.id as string;
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${id}`,
+      cookies: cookies(),
+      payload: { status: 'in_progress' },
+    });
+    const stamped = res.json().workout.startedAt;
+    expect(stamped).not.toBeNull();
+    // a second PATCH must not move the recorded start
+    const again = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${id}`,
+      cookies: cookies(),
+      payload: { status: 'in_progress' },
+    });
+    expect(again.json().workout.startedAt).toBe(stamped);
+    await remove(id);
+  });
+});
+
 describe('analytics', () => {
   it('computes the dashboard from logged data', async () => {
     // The dashboard's muscle panel looks back 4 weeks from *now*, while the

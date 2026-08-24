@@ -83,6 +83,8 @@ export default async function workoutRoutes(app: FastifyInstance) {
           ...(body.date !== undefined ? { date: new Date(body.date) } : {}),
           ...(body.name !== undefined ? { name: body.name } : {}),
           ...(body.status !== undefined ? { status: body.status } : {}),
+          // A workout going live through PATCH gets its start recorded too.
+          ...(body.status === 'in_progress' && !existing.startedAt ? { startedAt: new Date() } : {}),
           ...(body.mode !== undefined ? { mode: body.mode } : {}),
           ...(body.notes !== undefined ? { notes: body.notes } : {}),
           ...(body.durationSec !== undefined ? { durationSec: body.durationSec } : {}),
@@ -124,7 +126,10 @@ export default async function workoutRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: 'Not found' });
     const workout = await prisma.workout.update({
       where: { id: existing.id },
-      data: { status: 'in_progress' },
+      // Stamped on every call, not just the first: /start fires once when a
+      // planned session goes live, and deliberately again when the user opts
+      // to restart a stale session's clock — both mean "the clock starts now".
+      data: { status: 'in_progress', startedAt: new Date() },
       include: workoutInclude,
     });
     return { workout: serializeWorkout(workout) };
@@ -143,9 +148,26 @@ export default async function workoutRoutes(app: FastifyInstance) {
         where: { id: request.params.id, userId: request.user!.id },
       });
       if (!existing) return reply.code(404).send({ error: 'Not found' });
+      // The server knows when the session went live; the client's clock is
+      // advisory. A browser that lost its localStorage once completed a
+      // 40-minute walk as 16 seconds — so a client value that contradicts
+      // wall time since startedAt loses to the server-derived one. Small
+      // drift (request latency, second rounding) passes through untouched.
+      const serverSec = existing.startedAt
+        ? Math.max(1, Math.round((Date.now() - existing.startedAt.getTime()) / 1000))
+        : null;
+      let durationSec = request.body.durationSec ?? serverSec ?? existing.durationSec;
+      const TOLERANCE_SEC = 120;
+      if (
+        serverSec != null &&
+        request.body.durationSec != null &&
+        Math.abs(request.body.durationSec - serverSec) > TOLERANCE_SEC
+      ) {
+        durationSec = serverSec;
+      }
       const workout = await prisma.workout.update({
         where: { id: existing.id },
-        data: { status: 'completed', durationSec: request.body.durationSec ?? existing.durationSec },
+        data: { status: 'completed', durationSec },
         include: workoutInclude,
       });
       return { workout: serializeWorkout(workout) };

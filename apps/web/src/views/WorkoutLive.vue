@@ -87,17 +87,25 @@ const name = ref('');
 const status = ref('');
 const exercises = ref<LiveExercise[]>([]);
 const startedAt = ref(Date.now());
+/** When the server says this session went live — the cross-device truth. */
+const serverStartedAt = ref<number | null>(null);
 const elapsed = ref(0);
 const restLeft = ref(0);
 const restEndsAt = ref(0);
 const restTotal = ref(90);
 let tick: ReturnType<typeof setInterval> | undefined;
 
-/** Session and rest timers are persisted as absolute timestamps rather than
- *  held as countdowns in component state: leaving the page (checking an
- *  exercise mid-rest) unmounts this view, and phones evict backgrounded tabs.
- *  Timestamps also mean both clocks keep running while away — matching the
- *  gym, where rest elapses whether or not you're looking at the screen. */
+/** Timers are persisted as absolute timestamps rather than held as countdowns
+ *  in component state: leaving the page (checking an exercise mid-rest)
+ *  unmounts this view, and phones evict backgrounded tabs. Timestamps also
+ *  mean both clocks keep running while away — matching the gym, where rest
+ *  elapses whether or not you're looking at the screen.
+ *
+ *  The session clock itself lives on the server (Workout.startedAt): a
+ *  browser's localStorage turned out to be evictable mid-session, which once
+ *  turned a 40-minute walk into a 16-second one. The copy kept here is the
+ *  rest timer's home and a fallback for sessions started before the server
+ *  recorded their start. */
 const TIMER_KEY = `ovl_live_${workoutId}`;
 const STALE_SESSION_MS = 12 * 60 * 60 * 1000;
 
@@ -108,20 +116,50 @@ function saveTimers() {
   );
 }
 
-function restoreTimers() {
-  const raw = localStorage.getItem(TIMER_KEY);
-  if (raw) {
-    try {
-      const saved = JSON.parse(raw);
-      // A session left running overnight is abandoned, not resumable.
-      if (typeof saved.startedAt === 'number' && Date.now() - saved.startedAt < STALE_SESSION_MS) {
-        startedAt.value = saved.startedAt;
-        if (typeof saved.restTotal === 'number') restTotal.value = saved.restTotal;
-        if (typeof saved.restEndsAt === 'number') restEndsAt.value = saved.restEndsAt;
-      }
-    } catch {
-      // corrupt entry — fall through and start this session fresh
+/** Re-stamp the server's clock: this session's timing starts over from now. */
+async function restartClock() {
+  const { data } = await api.post(`/workouts/${workoutId}/start`);
+  serverStartedAt.value = data.workout.startedAt ? Date.parse(data.workout.startedAt) : Date.now();
+  startedAt.value = serverStartedAt.value;
+}
+
+async function restoreTimers() {
+  // Rest state only ever lives in this browser — restore it regardless of
+  // where the session clock ends up coming from.
+  let saved: Record<string, unknown> = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(TIMER_KEY) ?? '{}');
+  } catch {
+    // corrupt entry — treated as absent
+  }
+  if (typeof saved.restTotal === 'number') restTotal.value = saved.restTotal;
+  if (typeof saved.restEndsAt === 'number') restEndsAt.value = saved.restEndsAt;
+
+  // The session clock: the server's startedAt survives everything this
+  // browser's storage does not — another device, a home-screen view with its
+  // own storage, Safari eviction. The saved timestamp still counts for
+  // sessions started before the server recorded starts, and where both
+  // exist, the earlier one is when the session actually began.
+  const savedStart = typeof saved.startedAt === 'number' ? saved.startedAt : null;
+  const known = [serverStartedAt.value, savedStart].filter((t): t is number => t != null);
+  const started = known.length ? Math.min(...known) : null;
+  const live = status.value === 'in_progress';
+
+  if (started == null) {
+    // No record anywhere of when this began. If it's genuinely live, it
+    // begins again — on the server's books this time.
+    if (live) await restartClock();
+  } else if (live && Date.now() - started > STALE_SESSION_MS) {
+    // A session left running overnight used to be zeroed without a word —
+    // that silence is what wrote a false duration. Now it's the user's call.
+    const hours = Math.round((Date.now() - started) / 3600000);
+    if (confirm(`This session was started ${hours} hours ago. Resume its timer?\n\nCancel restarts the timer from zero.`)) {
+      startedAt.value = started;
+    } else {
+      await restartClock();
     }
+  } else {
+    startedAt.value = started;
   }
   saveTimers();
 }
@@ -200,16 +238,18 @@ async function load() {
       isWarmup: false,
     },
   }));
+  serverStartedAt.value = w.startedAt ? Date.parse(w.startedAt) : null;
   if (w.status === 'planned') {
-    await api.post(`/workouts/${workoutId}/start`);
+    const { data: started } = await api.post(`/workouts/${workoutId}/start`);
     status.value = 'in_progress';
+    serverStartedAt.value = started.workout.startedAt ? Date.parse(started.workout.startedAt) : Date.now();
   }
 }
 
 onMounted(async () => {
   await load();
   // after load(), so a persisted rest length wins over the mode default
-  restoreTimers();
+  await restoreTimers();
   pruneAbandonedTimers();
   syncTimers();
   tick = setInterval(syncTimers, 1000);
@@ -326,7 +366,11 @@ async function removeSet(we: LiveExercise, setId: string) {
 }
 
 async function complete() {
-  await api.post(`/workouts/${workoutId}/complete`, { durationSec: elapsed.value });
+  // A sub-minute "session" is a mis-tap or a broken clock more often than a
+  // workout — never write one silently. The server cross-checks against its
+  // own startedAt regardless.
+  if (elapsed.value < 60 && !confirm(`Only ${fmtClock(elapsed.value)} on the clock — finish anyway?`)) return;
+  await api.post(`/workouts/${workoutId}/complete`, { durationSec: Math.max(1, elapsed.value) });
   localStorage.removeItem(TIMER_KEY);
   router.push(`/workouts/${workoutId}`);
 }

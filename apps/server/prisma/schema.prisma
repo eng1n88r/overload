@@ -126,6 +126,7 @@ model Workout {
   externalId String? // idempotency key for bulk creation via MCP
   notes      String?
   durationSec Int?
+  startedAt   DateTime? // stamped when the session goes live; server-side truth for elapsed time
   createdAt  DateTime  @default(now())
 
   exercises WorkoutExercise[]
