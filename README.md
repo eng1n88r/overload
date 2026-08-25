@@ -420,6 +420,15 @@ none of it is our work.
 
 ## Changelog
 
+### 0.3.0
+
+- The live session clock lives on the server: starting a session records when, the timer survives
+  lost browser storage and follows the session to another device, and the recorded duration is
+  cross-checked against wall time since the start — a client clock that contradicts it loses.
+  Fixes [#1](https://github.com/eng1n88r/overload/issues/1).
+- The timer never fails silently now: reopening a session started more than 12 hours ago asks
+  whether to resume or restart it, and finishing with under a minute on the clock asks first.
+
 ### 0.2.1
 
 - Effort rating chips open inline under the set you just logged, right where your thumb is —
