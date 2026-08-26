@@ -21,6 +21,10 @@ import Card from '@/components/bootstrap/Card.vue';
 import CardBody from '@/components/bootstrap/CardBody.vue';
 import CardExpandToggler from '@/components/bootstrap/CardExpandToggler.vue';
 
+// The other half of router.onError's stale-chunk recovery: Vite fires this
+// when a modulepreload for an old hashed asset 404s after a redeploy.
+window.addEventListener('vite:preloadError', () => window.location.reload());
+
 const emitter = mitt();
 const app = createApp(App);
 
