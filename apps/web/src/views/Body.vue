@@ -36,6 +36,14 @@ const metricSeries = ref<MetricRow[]>([]);
 async function loadWeight() {
   const { data } = await api.get('/body-metrics', { params: { type: 'weight', limit: 400 } });
   weightSeries.value = [...data.metrics].reverse();
+  onWeightDateChange();
+}
+
+/** Picking a date that already has an entry pulls it into the field, the way
+ *  the nutrition form does — so it's obvious you're editing, not adding. */
+function onWeightDateChange() {
+  const existing = weightSeries.value.find((m) => m.date === weightDate.value);
+  weightValue.value = existing ? toDisplay(existing.value) : null;
 }
 
 async function loadTypes() {
@@ -63,6 +71,19 @@ async function loadMetric() {
   const last = metricSeries.value.at(-1);
   metricUnit.value =
     last?.unit ?? BODY_MEASUREMENT_TYPES.find((t) => t.type === selectedType.value)?.unit ?? 'cm';
+  onMetricDateChange();
+}
+
+function onMetricDateChange() {
+  // A brand-new type has no history to pull from.
+  if (newType.value.trim()) return;
+  const existing = metricSeries.value.find((m) => m.date === metricDate.value);
+  if (existing) {
+    metricValue.value = existing.value;
+    metricUnit.value = existing.unit;
+  } else {
+    metricValue.value = null;
+  }
 }
 
 onMounted(async () => {
@@ -159,7 +180,7 @@ const latestWeight = computed(() => weightSeries.value.at(-1));
             <CardExpandToggler />
           </div>
           <form class="row g-2 mb-3" @submit.prevent="saveWeight">
-            <div class="col-auto"><input type="date" v-model="weightDate" class="form-control" /></div>
+            <div class="col-auto"><input type="date" v-model="weightDate" @change="onWeightDateChange" class="form-control" /></div>
             <div class="col-auto">
               <input type="number" v-model.number="weightValue" step="0.1" min="20" max="400" class="form-control" :placeholder="unit" required style="width: 110px" />
             </div>
@@ -185,7 +206,7 @@ const latestWeight = computed(() => weightSeries.value.at(-1));
               </select>
             </div>
             <div class="col-6"><input v-model="newType" class="form-control" placeholder="...or new type" /></div>
-            <div class="col-4"><input type="date" v-model="metricDate" class="form-control" /></div>
+            <div class="col-4"><input type="date" v-model="metricDate" @change="onMetricDateChange" class="form-control" /></div>
             <div class="col-3"><input type="number" v-model.number="metricValue" step="0.1" class="form-control" placeholder="value" required /></div>
             <div class="col-2"><input v-model="metricUnit" class="form-control" placeholder="unit" /></div>
             <div class="col-3"><button class="btn btn-outline-theme w-100" type="submit">Log</button></div>
