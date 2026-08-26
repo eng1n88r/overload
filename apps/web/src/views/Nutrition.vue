@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useAppVariableStore } from '@/stores/app-variable';
 import apexchart from '@/components/plugins/ApexChart.vue';
-import { todayLocal } from '@/composables/format';
+import { dismissPicker, todayLocal } from '@/composables/format';
 import { api } from '@/api/client';
 
 const appVariable = useAppVariableStore();
@@ -108,7 +108,7 @@ const caloriesChart = computed(() => ({
           <form @submit.prevent="save">
             <div class="mb-2">
               <label class="form-label">Date</label>
-              <input type="date" v-model="form.date" @change="onDateChange" class="form-control" />
+              <input type="date" v-model="form.date" @change="onDateChange(), dismissPicker($event)" class="form-control" />
             </div>
             <div class="row g-2 mb-3">
               <div class="col-6">

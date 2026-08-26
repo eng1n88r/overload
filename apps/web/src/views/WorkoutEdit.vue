@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { MUSCLES } from '@overload/shared';
-import { labelize, todayLocal } from '@/composables/format';
+import { dismissPicker, labelize, todayLocal } from '@/composables/format';
 import { useDistanceUnit, useUnits } from '@/composables/units';
 import { api, errorMessage } from '@/api/client';
 
@@ -216,7 +216,7 @@ async function save() {
       <Card class="mb-3">
         <CardBody>
           <div class="row g-2 mb-2">
-            <div class="col-md-3"><label class="form-label">Date</label><input type="date" v-model="date" class="form-control" /></div>
+            <div class="col-md-3"><label class="form-label">Date</label><input type="date" v-model="date" @change="dismissPicker($event)" class="form-control" /></div>
             <div class="col-md-5"><label class="form-label">Name</label><input v-model="name" class="form-control" placeholder="e.g. Upper A" /></div>
             <div class="col-md-4">
               <label class="form-label">Status</label>

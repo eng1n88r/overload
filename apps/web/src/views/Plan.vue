@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { labelize } from '@/composables/format';
+import { dismissPicker, labelize } from '@/composables/format';
 import MarkdownText from '@/components/app/MarkdownText.vue';
 import { api, errorMessage } from '@/api/client';
 
@@ -222,7 +222,7 @@ const activePlan = () => plans.value.find((p) => p.status === 'active');
           <div class="row g-2 mb-3">
             <div class="col-4">
               <label class="form-label">Start date</label>
-              <input v-model="editForm.startDate" type="date" class="form-control" />
+              <input v-model="editForm.startDate" type="date" @change="dismissPicker($event)" class="form-control" />
             </div>
             <div class="col-4">
               <label class="form-label">Weeks</label>

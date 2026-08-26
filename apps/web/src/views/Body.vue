@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useAppVariableStore } from '@/stores/app-variable';
 import apexchart from '@/components/plugins/ApexChart.vue';
 import { BODY_MEASUREMENT_TYPES } from '@overload/shared';
-import { labelize, todayLocal } from '@/composables/format';
+import { dismissPicker, labelize, todayLocal } from '@/composables/format';
 import { useUnits } from '@/composables/units';
 import { api } from '@/api/client';
 
@@ -180,7 +180,7 @@ const latestWeight = computed(() => weightSeries.value.at(-1));
             <CardExpandToggler />
           </div>
           <form class="row g-2 mb-3" @submit.prevent="saveWeight">
-            <div class="col-auto"><input type="date" v-model="weightDate" @change="onWeightDateChange" class="form-control" /></div>
+            <div class="col-auto"><input type="date" v-model="weightDate" @change="onWeightDateChange(), dismissPicker($event)" class="form-control" /></div>
             <div class="col-auto">
               <input type="number" v-model.number="weightValue" step="0.1" min="20" max="400" class="form-control" :placeholder="unit" required style="width: 110px" />
             </div>
@@ -206,7 +206,7 @@ const latestWeight = computed(() => weightSeries.value.at(-1));
               </select>
             </div>
             <div class="col-6"><input v-model="newType" class="form-control" placeholder="...or new type" /></div>
-            <div class="col-4"><input type="date" v-model="metricDate" @change="onMetricDateChange" class="form-control" /></div>
+            <div class="col-4"><input type="date" v-model="metricDate" @change="onMetricDateChange(), dismissPicker($event)" class="form-control" /></div>
             <div class="col-3"><input type="number" v-model.number="metricValue" step="0.1" class="form-control" placeholder="value" required /></div>
             <div class="col-2"><input v-model="metricUnit" class="form-control" placeholder="unit" /></div>
             <div class="col-3"><button class="btn btn-outline-theme w-100" type="submit">Log</button></div>

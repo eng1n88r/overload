@@ -35,3 +35,10 @@ export function fmtDuration(sec: number | null | undefined): string | null {
   if (mins < 60) return `${mins} min`;
   return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`;
 }
+
+/** Close the native date-picker popover once a date is chosen. Desktop
+ *  browsers dismiss it on their own; iOS leaves the calendar open until the
+ *  input loses focus, which reads as the tap not registering. */
+export function dismissPicker(e: Event): void {
+  (e.target as HTMLElement | null)?.blur();
+}
