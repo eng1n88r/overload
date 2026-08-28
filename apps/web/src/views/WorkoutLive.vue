@@ -244,6 +244,8 @@ async function load() {
     status.value = 'in_progress';
     serverStartedAt.value = started.workout.startedAt ? Date.parse(started.workout.startedAt) : Date.now();
   }
+  // Reloading mid-session: what was finished stays tucked away.
+  for (const we of exercises.value) if (isDone(we)) collapsedIds.value.add(we.id);
 }
 
 onMounted(async () => {
@@ -316,10 +318,36 @@ function toggleRpeRow(setId: string) {
   rpeEditing.value = rpeEditing.value === setId ? null : setId;
 }
 
+/** Exercises tucked into a compact row once every prescribed working set is
+ *  logged — the card that still needs attention keeps the space. Tapping the
+ *  row brings the full card back. */
+const collapsedIds = ref(new Set<string>());
+/** A just-finished exercise waiting for its rating chips to close before it
+ *  collapses — never yank the panel out from under the finger. */
+const pendingCollapse = ref<string | null>(null);
+
+function workingSets(we: LiveExercise): number {
+  return we.sets.filter((s) => !s.isWarmup).length;
+}
+/** Freestyle exercises have no prescribed set count and never self-collapse. */
+function isDone(we: LiveExercise): boolean {
+  return we.targetSets != null && workingSets(we) >= we.targetSets;
+}
+
+watch(rpeEditing, (setId) => {
+  if (!pendingCollapse.value) return;
+  const pending = exercises.value.find((x) => x.id === pendingCollapse.value);
+  // Still rating a set of the finished exercise — hold the collapse.
+  if (setId && pending?.sets.some((s) => s.id === setId)) return;
+  collapsedIds.value.add(pendingCollapse.value);
+  pendingCollapse.value = null;
+});
+
 async function logSet(we: LiveExercise) {
   const mode = modeOf(we);
   const load = loadKindOf(we.equipment);
   const i = we.input;
+  const wasDone = isDone(we);
 
   // Nothing meaningful entered for this mode.
   const durationMin = mode === 'cardio' ? durationModel(we) : i.durationMin;
@@ -358,6 +386,12 @@ async function logSet(we: LiveExercise) {
   const { data } = await api.get(`/workouts/${workoutId}`);
   const fresh = data.workout.exercises.find((x: Omit<LiveExercise, 'input'>) => x.id === we.id);
   if (fresh) we.sets = fresh.sets;
+  // Crossing the target collapses the card — once. Logging extras into a
+  // deliberately re-expanded exercise doesn't keep tucking it away.
+  if (!wasDone && isDone(we)) {
+    if (rpeEditing.value) pendingCollapse.value = we.id;
+    else collapsedIds.value.add(we.id);
+  }
 }
 
 async function removeSet(we: LiveExercise, setId: string) {
@@ -411,7 +445,36 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
   <div class="row g-3">
     <div v-for="we in exercises" :key="we.id" class="col-xl-6">
       <Card>
-        <CardBody>
+        <CardBody
+          v-if="collapsedIds.has(we.id)"
+          class="py-2"
+          role="button"
+          :title="`${we.exerciseName} — tap to expand`"
+          @click="collapsedIds.delete(we.id)"
+        >
+          <div class="d-flex align-items-center">
+            <img
+              v-if="we.image"
+              :src="we.image"
+              class="rounded object-fit-cover me-2 flex-shrink-0"
+              style="width: 40px; height: 30px"
+              :alt="we.exerciseName"
+            />
+            <div
+              v-else
+              class="rounded bg-white bg-opacity-10 d-flex align-items-center justify-content-center me-2 flex-shrink-0"
+              style="width: 40px; height: 30px"
+            >
+              <i class="ti ti-barbell text-inverse text-opacity-25"></i>
+            </div>
+            <span class="fw-500 text-inverse text-truncate">{{ we.exerciseName }}</span>
+            <span class="badge bg-theme bg-opacity-15 text-theme ms-auto me-2 flex-shrink-0">
+              <i class="ti ti-check me-1"></i>{{ workingSets(we) }}/{{ we.targetSets }} sets
+            </span>
+            <i class="ti ti-chevron-down text-inverse text-opacity-50"></i>
+          </div>
+        </CardBody>
+        <CardBody v-else>
           <div class="d-flex mb-2">
             <RouterLink :to="`/exercises/${we.exerciseId}`" class="flex-shrink-0 me-3">
               <img
@@ -439,6 +502,14 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
               </div>
               <div v-if="we.notes" class="small text-warning">{{ we.notes }}</div>
             </div>
+            <button
+              v-if="isDone(we)"
+              class="btn btn-link text-inverse text-opacity-50 ms-auto p-0 align-self-start"
+              title="Collapse"
+              @click="collapsedIds.add(we.id)"
+            >
+              <i class="ti ti-chevron-up"></i>
+            </button>
           </div>
 
           <template v-for="s in we.sets" :key="s.id">
