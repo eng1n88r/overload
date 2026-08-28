@@ -420,6 +420,18 @@ none of it is our work.
 
 ## Changelog
 
+### 0.4.0
+
+- In the live session, a finished exercise tucks itself into a compact row — thumbnail, name and
+  a ✓ sets badge — once every prescribed working set is logged. Tap the row to bring the card
+  back. The collapse waits for the rating chips to close first, and a mid-session reload keeps
+  finished work tucked away.
+- Body page: picking a date that already has a weigh-in or measurement pulls the stored value
+  into the form, the way the nutrition form does.
+- Date pickers close once a date is chosen on iOS instead of hanging open.
+- Menus no longer dead-end with a full loading bar after a redeploy: when a stale chunk fails to
+  load, the app reloads itself onto the new build.
+
 ### 0.3.0
 
 - The live session clock lives on the server: starting a session records when, the timer survives
