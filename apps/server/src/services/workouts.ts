@@ -41,6 +41,7 @@ export function serializeWorkout(w: WorkoutFull) {
       // Resolved here so every client agrees: an explicit per-workout unit
       // wins, otherwise the movement's catalog default.
       unit: we.unit ?? we.exercise.defaultUnit,
+      restSec: we.restSec,
       notes: we.notes,
       sets: we.sets.map((s) => ({
         id: s.id,
@@ -81,6 +82,7 @@ export async function exercisesCreateData(exercises: WorkoutCreate['exercises'])
     targetRepsHigh: we.targetRepsHigh ?? null,
     targetWeightKg: we.targetWeightKg ?? null,
     unit: we.unit ?? null,
+    restSec: we.restSec ?? null,
     notes: we.notes ?? null,
     sets: {
       create: we.sets.map((s, j) => ({

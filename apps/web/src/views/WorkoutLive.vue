@@ -31,6 +31,7 @@ interface LiveExercise {
   targetRepsLow: number | null;
   targetRepsHigh: number | null;
   targetWeightKg: number | null;
+  restSec: number | null;
   notes: string | null;
   sets: SetRow[];
   /** weight/distance are in the user's display unit; converted on log */
@@ -93,6 +94,13 @@ const elapsed = ref(0);
 const restLeft = ref(0);
 const restEndsAt = ref(0);
 const restTotal = ref(90);
+/** Length of the countdown currently running — an exercise's prescribed rest
+ *  can differ from the dropdown, and the progress bar must agree with the
+ *  clock that is actually ticking. */
+const restLen = ref(90);
+/** True once the lifter touches the rest dropdown: an explicit choice beats
+ *  every prescription for the remainder of the session. */
+const restPicked = ref(false);
 let tick: ReturnType<typeof setInterval> | undefined;
 
 /** Timers are persisted as absolute timestamps rather than held as countdowns
@@ -112,7 +120,13 @@ const STALE_SESSION_MS = 12 * 60 * 60 * 1000;
 function saveTimers() {
   localStorage.setItem(
     TIMER_KEY,
-    JSON.stringify({ startedAt: startedAt.value, restEndsAt: restEndsAt.value, restTotal: restTotal.value }),
+    JSON.stringify({
+      startedAt: startedAt.value,
+      restEndsAt: restEndsAt.value,
+      restTotal: restTotal.value,
+      restLen: restLen.value,
+      restPicked: restPicked.value,
+    }),
   );
 }
 
@@ -134,6 +148,8 @@ async function restoreTimers() {
   }
   if (typeof saved.restTotal === 'number') restTotal.value = saved.restTotal;
   if (typeof saved.restEndsAt === 'number') restEndsAt.value = saved.restEndsAt;
+  if (typeof saved.restLen === 'number') restLen.value = saved.restLen;
+  if (typeof saved.restPicked === 'boolean') restPicked.value = saved.restPicked;
 
   // The session clock: the server's startedAt survives everything this
   // browser's storage does not — another device, a home-screen view with its
@@ -194,8 +210,9 @@ function syncTimers() {
   }
 }
 
-function startRest() {
-  restEndsAt.value = Date.now() + restTotal.value * 1000;
+function startRest(seconds?: number) {
+  restLen.value = seconds ?? restTotal.value;
+  restEndsAt.value = Date.now() + restLen.value * 1000;
   saveTimers();
   syncTimers();
 }
@@ -379,7 +396,9 @@ async function logSet(we: LiveExercise) {
   }
   // Rest is the gap between efforts. There is no such gap after cardio — a
   // 1:00 countdown following a 35-minute walk is a clock for nothing.
-  if (mode !== 'cardio') startRest();
+  // The exercise's prescribed rest drives the countdown; the dropdown is the
+  // fallback — and the override, once the lifter has touched it.
+  if (mode !== 'cardio') startRest(restPicked.value ? restTotal.value : (we.restSec ?? restTotal.value));
   // The new row opens its rating chips right where the finger already is.
   // Warm-ups are not efforts worth rating.
   rpeEditing.value = mode !== 'cardio' && !wasWarmup && created?.set?.id ? created.set.id : null;
@@ -419,7 +438,7 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
         <i class="ti ti-stopwatch me-1"></i>{{ fmtClock(elapsed) }}
       </span>
       <span class="badge bg-inverse bg-opacity-25 fs-6">{{ doneSets }} sets</span>
-      <select v-model.number="restTotal" class="form-select form-select-sm w-auto" title="Rest between sets">
+      <select v-model.number="restTotal" @change="restPicked = true" class="form-select form-select-sm w-auto" title="Rest between sets">
         <option :value="60">Rest 1:00</option>
         <option :value="90">Rest 1:30</option>
         <option :value="120">Rest 2:00</option>
@@ -437,7 +456,7 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
     <i class="ti ti-hourglass me-2"></i>
     <strong class="me-2 font-monospace">{{ fmtClock(restLeft) }}</strong>
     <div class="progress flex-grow-1 mx-2" style="height: 6px">
-      <div class="progress-bar bg-theme" :style="{ width: (restLeft / restTotal) * 100 + '%' }"></div>
+      <div class="progress-bar bg-theme" :style="{ width: (restLeft / restLen) * 100 + '%' }"></div>
     </div>
     <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
   </div>

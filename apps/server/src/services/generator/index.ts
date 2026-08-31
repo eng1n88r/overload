@@ -31,6 +31,7 @@ interface GeneratedExercise {
   targetRepsHigh: number;
   targetWeightKg: number | null;
   unit: string | null;
+  restSec: number | null;
   notes: string | null;
 }
 
@@ -87,6 +88,9 @@ async function applyProgression(
     // Timed movements (planks, carries, stretches) must reach the logger as a
     // seconds input rather than a reps stepper.
     unit: exercise.defaultUnit,
+    // The mode's rest, structurally — the live timer runs it; the prose note
+    // stays a human-readable cue.
+    restSec: MODE_CONFIG[mode].restSec,
     notes: notes.length ? notes.join(' | ') : null,
   };
 }
@@ -240,6 +244,7 @@ export async function generateWorkout(userId: string, opts: GenerateOptions = {}
         // Structured, so the logger can pick the right input. The prose note
         // above stays as a belt-and-braces cue for humans and agents.
         unit: t.unit ?? gen.unit,
+        restSec: t.restSec ?? gen.restSec,
         notes: extras.length ? extras.join(' | ') : null,
       });
     }
@@ -297,6 +302,7 @@ export async function generateWorkout(userId: string, opts: GenerateOptions = {}
           targetRepsHigh: e.targetRepsHigh,
           targetWeightKg: e.targetWeightKg,
           unit: e.unit,
+          restSec: e.restSec,
           notes: e.notes,
         })),
       },

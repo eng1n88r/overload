@@ -40,6 +40,7 @@ export const workoutExerciseSchema = z.object({
   targetRepsHigh: z.number().int().positive().nullish(),
   targetWeightKg: numeric(num().min(0)).nullish(),
   unit: z.enum(['reps', 'seconds']).nullish().describe("'seconds' for timed holds; omit to inherit the exercise default"),
+  restSec: numeric(num().int().min(0).max(1800)).nullish().describe('prescribed rest after each working set, seconds — the live rest timer runs it'),
   notes: z.string().max(1000).nullish(),
   sets: z.array(setEntrySchema).default([]),
 });

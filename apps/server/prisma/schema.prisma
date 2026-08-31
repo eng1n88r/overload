@@ -145,6 +145,7 @@ model WorkoutExercise {
   targetRepsHigh Int?
   targetWeightKg Float?
   unit           String? // reps | seconds; null inherits exercise.defaultUnit
+  restSec        Int? // prescribed rest after each working set; the live timer runs it
   notes          String?
 
   workout  Workout    @relation(fields: [workoutId], references: [id], onDelete: Cascade)

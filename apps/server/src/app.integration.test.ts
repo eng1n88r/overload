@@ -338,6 +338,27 @@ describe('workouts', () => {
     expect(res.json().workout.id).toBe(workoutId);
   });
 
+  it('round-trips per-exercise rest', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/workouts',
+      cookies: { ovl_session: sessionCookie },
+      payload: {
+        date: '2026-07-23',
+        externalId: 'it-rest-sec',
+        exercises: [{ exerciseId: 'Test_Bench_Press', targetSets: 3, restSec: 75, sets: [] }],
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const w = res.json().workout;
+    expect(w.exercises[0].restSec).toBe(75);
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/workouts/${w.id}`,
+      cookies: { ovl_session: sessionCookie },
+    });
+  });
+
   it('rejects unknown exercise ids', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -980,6 +1001,8 @@ describe('generator', () => {
     // 6 reps logged at 70 last time, not the bottom of the 6-10 range.
     expect(bench.targetRepsLow).toBe(7);
     expect(bench.targetRepsHigh).toBe(10);
+    // The mode's rest travels structurally so the live timer can run it.
+    expect(bench.restSec).toBe(90);
   });
 
   it('strength mode anchors weight to e1RM, uses 3-6 reps and a warm-up ramp', async () => {
