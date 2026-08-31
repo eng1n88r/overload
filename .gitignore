@@ -5,7 +5,9 @@ dist/
 # local env
 .env
 .env.local
-.claude/
+# Local Claude Code state stays private; the shipped skill does not.
+.claude/*
+!.claude/skills/
 
 # databases
 *.db
