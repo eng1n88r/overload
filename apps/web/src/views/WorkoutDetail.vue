@@ -114,7 +114,7 @@ function setLabel(s: SetRow) {
                 {{ we.exerciseName }}
               </RouterLink>
               <div v-if="we.targetSets" class="small text-inverse text-opacity-50">
-                target {{ we.targetSets }} × {{ we.targetRepsLow }}–{{ we.targetRepsHigh }}
+                target {{ we.targetSets }} × {{ we.targetRepsLow }}{{ we.targetRepsHigh !== we.targetRepsLow ? `–${we.targetRepsHigh}` : '' }}
                 <template v-if="we.targetWeightKg">@ {{ toDisplay(we.targetWeightKg) }} {{ unit }}</template>
               </div>
               <div class="mt-1">

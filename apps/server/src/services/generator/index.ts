@@ -227,11 +227,15 @@ export async function generateWorkout(userId: string, opts: GenerateOptions = {}
         isDeload ? 'deload week — reduced volume' : null,
         gen.notes,
       ].filter(Boolean);
+      // The template's range is the program; the generator's repsLow is this
+      // session's aim (beat last time by one rep). Keep the aim, boxed into
+      // the template's range — a static template floor must not undo it.
+      const tRepsHigh = t.repsHigh ?? gen.targetRepsHigh;
       exercises.push({
         ...gen,
         targetSets,
-        targetRepsLow: t.repsLow ?? gen.targetRepsLow,
-        targetRepsHigh: t.repsHigh ?? gen.targetRepsHigh,
+        targetRepsLow: Math.min(Math.max(gen.targetRepsLow, t.repsLow ?? gen.targetRepsLow), tRepsHigh),
+        targetRepsHigh: tRepsHigh,
         targetWeightKg,
         // Structured, so the logger can pick the right input. The prose note
         // above stays as a belt-and-braces cue for humans and agents.

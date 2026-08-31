@@ -312,10 +312,16 @@ export function nextTarget(
   // Sanity-cap unrealistic jumps against the e1RM — but never prescribe below
   // a weight the lifter already handled (that would be a hidden deload).
   if (ceiling !== null && weight > ceiling) weight = Math.max(ceiling, last.weight);
+  // Repeating a weight means the ask is more reps, and the target should say
+  // so: the rep floor becomes last session's reps plus one, capped at the top
+  // of the range — the number the logger prefills. A fresh jump resets the
+  // aim to the bottom of the range, where a new weight is supposed to start.
+  const repsLow =
+    weight > last.weight ? range.low : Math.min(Math.max(last.minReps + 1, range.low), range.high);
   // Both branches above can hand back `last.weight` untouched, and history is
   // whatever was logged — including the off-grid loads this used to prescribe.
   // A repeat is still a prescription, so it has to be loadable too.
-  return { sets, repsLow: range.low, repsHigh: range.high, weightKg: roundToStep(weight, step), deload: false };
+  return { sets, repsLow, repsHigh: range.high, weightKg: roundToStep(weight, step), deload: false };
 }
 
 /** Warm-up ramp toward a working weight (strength mode): ~40/60/80% singles

@@ -162,6 +162,7 @@ Double progression, bounded by the estimate:
 1. Top of the rep range reached on all top-weight sets → add one increment; otherwise repeat the weight.
 2. The effort rating sizes the jump: ≤ 6 → two increments; 9 or harder → hold; unrated or 7–8.5 → one.
 3. Never above the weight where the *bottom* of the range would be a max effort; never below a weight already handled.
+4. When the weight repeats, the target's rep floor is the session aim — last session's reps plus one, capped at the top of the range — and the logger prefills it. A fresh jump resets the aim to the bottom of the range.
 4. Increments: barbell/machine/cable 5 lb or 2.5 kg (doubled for lower-body strength work), dumbbells 5 lb or 2 kg, bodyweight and bands 0.
 5. Everything is rounded onto the lifter's own plate grid — an lb lifter gets whole 5 lb steps, not converted kg.
 6. Strength mode adds a 40 / 60 / 80% warm-up ramp when the working weight is ≥ 40 kg.

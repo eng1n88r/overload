@@ -354,3 +354,28 @@ describe('effort ratings feed the prescription', () => {
     });
   });
 });
+
+describe('nextTarget: the rep floor is a session aim', () => {
+  it('asks for one more rep when the weight repeats', () => {
+    // 8 reps mid-range (6-10 compound): weight holds, the floor moves to 9 —
+    // the number the logger prefills.
+    const t = nextTarget([hyp([{ reps: 8, weightKg: 40 }])], 'hypertrophy', 'compound', 2.5);
+    expect(t.weightKg).toBe(40);
+    expect(t.repsLow).toBe(9);
+    expect(t.repsHigh).toBe(10);
+  });
+
+  it('caps the aim at the top of the range', () => {
+    // Top of the range held at RPE 9: the weight stays, and so does the aim —
+    // there is no 11 in a 6-10 prescription.
+    const t = nextTarget([{ sets: [{ reps: 10, weightKg: 40, rpe: 9 }] }], 'hypertrophy', 'compound', 2.5);
+    expect(t.weightKg).toBe(40);
+    expect(t.repsLow).toBe(10);
+  });
+
+  it('resets the aim to the bottom of the range after a weight jump', () => {
+    const t = nextTarget([hyp([{ reps: 10, weightKg: 40 }])], 'hypertrophy', 'compound', 2.5);
+    expect(t.weightKg).toBe(42.5);
+    expect(t.repsLow).toBe(6);
+  });
+});

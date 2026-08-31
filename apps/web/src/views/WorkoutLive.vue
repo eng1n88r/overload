@@ -497,7 +497,7 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
                 {{ we.exerciseName }}
               </RouterLink>
               <div v-if="we.targetSets" class="small text-inverse text-opacity-50">
-                Target: {{ we.targetSets }} × {{ we.targetRepsLow }}–{{ we.targetRepsHigh }}{{ modeOf(we) === 'timed' ? 's' : '' }}
+                Target: {{ we.targetSets }} × {{ we.targetRepsLow }}{{ we.targetRepsHigh !== we.targetRepsLow ? `–${we.targetRepsHigh}` : '' }}{{ modeOf(we) === 'timed' ? 's' : '' }}
                 <template v-if="we.targetWeightKg"> @ {{ toDisplay(we.targetWeightKg) }} {{ unit }}</template>
               </div>
               <div v-if="we.notes" class="small text-warning">{{ we.notes }}</div>

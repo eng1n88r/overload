@@ -976,7 +976,9 @@ describe('generator', () => {
     // only catalog exercise for chest; double progression continues at last top weight
     expect(bench).toBeDefined();
     expect(bench.targetWeightKg).toBe(70);
-    expect(bench.targetRepsLow).toBe(6);
+    // The weight repeats, so the rep floor is the session aim: one past the
+    // 6 reps logged at 70 last time, not the bottom of the 6-10 range.
+    expect(bench.targetRepsLow).toBe(7);
     expect(bench.targetRepsHigh).toBe(10);
   });
 
