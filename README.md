@@ -310,6 +310,12 @@ claude mcp add --transport http overload http://YOUR-SERVER:3001/mcp --header "A
 Other MCP clients: streamable-HTTP endpoint `http://YOUR-SERVER:3001/mcp`, same header.
 The same key works on the REST API (`Authorization: Bearer ovl_...` on `/api/v1/*`).
 
+There is also a ready-made coaching skill at
+[`.claude/skills/overload-coach/SKILL.md`](.claude/skills/overload-coach/SKILL.md) — playbooks
+for generating workouts, analyzing a session/week/month, weight trends and plan maintenance.
+Claude Code picks it up automatically inside this repo; elsewhere, copy the folder into
+`~/.claude/skills/`, or add it as a skill on claude.ai.
+
 Claude gets 28 user-scoped tools.
 
 <details>
