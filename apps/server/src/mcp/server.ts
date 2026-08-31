@@ -26,7 +26,8 @@ const SERVER_INSTRUCTIONS = `Overload is the user's personal training log. Typic
 - Explore: get_dashboard (session opener) / query_workout_history / get_exercise_stats.
 - Program: resolve_exercise_names (dry-run name resolution) -> add_exercise_alias or create_exercise for gaps -> create_plan (days carry weekday anchors and per-exercise template: sets, reps, targetWeightKg, RIR, rest, per-side, seconds unit) -> generate_week or generate_workout to materialize sessions.
 - Log: log_set during a session; log_body_metric / log_nutrition daily.
-Conventions: weights are kg. Dates accept YYYY-MM-DD or full ISO. Update tools are true PATCH — omitted fields stay unchanged; arrays replace only when present. Exercise references accept catalog id, exact name, or alias.`;
+Conventions: weights are kg. Dates accept YYYY-MM-DD or full ISO. Update tools are true PATCH — omitted fields stay unchanged; arrays replace only when present. Exercise references accept catalog id, exact name, or alias.
+Generated targets: in a generated workout, targetRepsLow is the SESSION AIM, not the plan's range floor — when the weight repeats, the generator raises it to last session's reps + 1 (capped at targetRepsHigh), and the logger prefills it. A floor above the plan template's is deliberate; do not "correct" it back via update_workout. Plan templates keep the program's true range in repsLow/High.`;
 
 function text(value: unknown) {
   return { content: [{ type: 'text' as const, text: typeof value === 'string' ? value : JSON.stringify(value, null, 1) }] };
@@ -790,7 +791,7 @@ export function buildMcpServer(user: User): McpServer {
     'generate_week',
     {
       description:
-        "Materialize a week of the active plan: creates one planned workout per plan day, dated by each day's weekday anchor (0=Mon..6=Sun; days without a weekday are spread across the week). weekStartDate must be a Monday (defaults to next Monday). Skips dates that already have a planned workout.",
+        "Materialize a week of the active plan: creates one planned workout per plan day, dated by each day's weekday anchor (0=Mon..6=Sun; days without a weekday are spread across the week). weekStartDate must be a Monday (defaults to next Monday). Skips dates that already have a planned workout. Each exercise's targetRepsLow is the session aim (last reps + 1 on a repeating weight), not the template's range floor.",
       inputSchema: { weekStartDate: z.string().date().optional().describe('the Monday the week starts on') },
     },
     async ({ weekStartDate }) => {
@@ -838,7 +839,7 @@ export function buildMcpServer(user: User): McpServer {
     'generate_workout',
     {
       description:
-        'Run the deterministic generator: creates a planned workout from a plan day template, explicit muscles, or (default) the freshest muscle group. mode picks the prescription math — strength (3-6 reps @ ~85-95% e1RM, warm-up ramp), hypertrophy (6-15 reps, default) or endurance (15-25 reps) — falling back to the plan day mode, then the user default. Returns the workout id — refine it with update_workout.',
+        'Run the deterministic generator: creates a planned workout from a plan day template, explicit muscles, or (default) the freshest muscle group. mode picks the prescription math — strength (3-6 reps @ ~85-95% e1RM, warm-up ramp), hypertrophy (6-15 reps, default) or endurance (15-25 reps) — falling back to the plan day mode, then the user default. Within a range, targetRepsLow is the session aim: one rep past last session when the weight repeats. Returns the workout id — refine it with update_workout.',
       inputSchema: generateWorkoutSchema.shape,
     },
     async ({ date, planDayId, muscles, mode }) => {
