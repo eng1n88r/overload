@@ -101,6 +101,54 @@ const restLen = ref(90);
 /** True once the lifter touches the rest dropdown: an explicit choice beats
  *  every prescription for the remainder of the session. */
 const restPicked = ref(false);
+
+/** Rest-timer sounds: a soft tick at 3-2-1 and a two-tone chime at zero,
+ *  synthesized with Web Audio — no files, nothing to load. A device
+ *  preference, so it lives in localStorage, not on the server. iOS only
+ *  unlocks audio inside a user gesture, so the context is primed from the
+ *  Log set / Skip / toggle taps — and the ringer switch still wins. */
+const soundOn = ref(localStorage.getItem('ovl_rest_sound') !== 'off');
+let audioCtx: AudioContext | null = null;
+
+function primeAudio() {
+  if (!soundOn.value) return;
+  type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
+  const Ctx = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext;
+  if (!Ctx) return;
+  audioCtx = audioCtx ?? new Ctx();
+  if (audioCtx.state === 'suspended') void audioCtx.resume();
+}
+
+function beep(freq: number, delaySec = 0, durSec = 0.09, gain = 0.2) {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  const at = audioCtx.currentTime + delaySec;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(gain, at + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + durSec);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(at);
+  osc.stop(at + durSec + 0.05);
+}
+
+const tickSound = () => beep(880, 0, 0.06, 0.12);
+function doneChime() {
+  beep(880, 0, 0.12);
+  beep(1318.5, 0.14, 0.22);
+}
+
+function toggleSound() {
+  soundOn.value = !soundOn.value;
+  localStorage.setItem('ovl_rest_sound', soundOn.value ? 'on' : 'off');
+  // Audible feedback doubles as the unlock gesture.
+  if (soundOn.value) {
+    primeAudio();
+    tickSound();
+  }
+}
 let tick: ReturnType<typeof setInterval> | undefined;
 
 /** Timers are persisted as absolute timestamps rather than held as countdowns
@@ -203,8 +251,15 @@ function syncTimers() {
     restLeft.value = 0;
     return;
   }
-  restLeft.value = Math.max(0, Math.ceil((restEndsAt.value - Date.now()) / 1000));
-  if (restLeft.value === 0) {
+  const left = Math.max(0, Math.ceil((restEndsAt.value - Date.now()) / 1000));
+  // Sounds fire on transitions only, and the chime only when the end is
+  // actually now — coming back to a tab minutes late stays silent.
+  if (soundOn.value && left !== restLeft.value) {
+    if (left > 0 && left <= 3) tickSound();
+    else if (left === 0 && Date.now() - restEndsAt.value < 2500) doneChime();
+  }
+  restLeft.value = left;
+  if (left === 0) {
     restEndsAt.value = 0;
     saveTimers();
   }
@@ -361,6 +416,8 @@ watch(rpeEditing, (setId) => {
 });
 
 async function logSet(we: LiveExercise) {
+  // Synchronous, before any await: iOS ties audio unlock to the tap itself.
+  primeAudio();
   const mode = modeOf(we);
   const load = loadKindOf(we.equipment);
   const i = we.input;
@@ -438,6 +495,13 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
         <i class="ti ti-stopwatch me-1"></i>{{ fmtClock(elapsed) }}
       </span>
       <span class="badge bg-inverse bg-opacity-25 fs-6">{{ doneSets }} sets</span>
+      <button
+        class="btn btn-outline-secondary"
+        :title="soundOn ? 'Rest sounds on' : 'Rest sounds off'"
+        @click="toggleSound"
+      >
+        <i :class="soundOn ? 'ti ti-volume' : 'ti ti-volume-off'"></i>
+      </button>
       <select v-model.number="restTotal" @change="restPicked = true" class="form-select form-select-sm w-auto" title="Rest between sets">
         <option :value="60">Rest 1:00</option>
         <option :value="90">Rest 1:30</option>

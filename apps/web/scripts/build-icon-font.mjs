@@ -26,7 +26,7 @@ const ICONS = [
   'chevron-down', 'chevron-right', 'color-swatch', 'contrast', 'flame', 'heartbeat', 'hourglass',
   'key', 'layout-dashboard', 'list-check', 'logout', 'moon-stars',
   'pencil', 'player-play', 'plus', 'sparkles', 'stopwatch', 'sun', 'trash',
-  'user-circle', 'x',
+  'user-circle', 'volume', 'volume-off', 'x',
 ];
 
 const pkg = resolve(root, 'node_modules/@tabler/icons-webfont/dist');
