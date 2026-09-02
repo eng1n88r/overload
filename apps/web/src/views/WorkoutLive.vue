@@ -495,6 +495,12 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
         <i class="ti ti-stopwatch me-1"></i>{{ fmtClock(elapsed) }}
       </span>
       <span class="badge bg-inverse bg-opacity-25 fs-6">{{ doneSets }} sets</span>
+      <select v-model.number="restTotal" @change="restPicked = true" class="form-select form-select-sm w-auto" title="Rest between sets">
+        <option :value="60">Rest 1:00</option>
+        <option :value="90">Rest 1:30</option>
+        <option :value="120">Rest 2:00</option>
+        <option :value="180">Rest 3:00</option>
+      </select>
       <button
         class="btn btn-outline-secondary"
         :title="soundOn ? 'Rest sounds on' : 'Rest sounds off'"
@@ -502,12 +508,6 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
       >
         <i :class="soundOn ? 'ti ti-volume' : 'ti ti-volume-off'"></i>
       </button>
-      <select v-model.number="restTotal" @change="restPicked = true" class="form-select form-select-sm w-auto" title="Rest between sets">
-        <option :value="60">Rest 1:00</option>
-        <option :value="90">Rest 1:30</option>
-        <option :value="120">Rest 2:00</option>
-        <option :value="180">Rest 3:00</option>
-      </select>
       <button class="btn btn-theme" @click="complete"><i class="ti ti-check me-1"></i>Finish</button>
     </div>
   </div>
