@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useDistanceUnit, useUnits } from '@/composables/units';
 import { api } from '@/api/client';
+import { useRestSound } from '@/composables/rest-sound';
 
 const { unit, toDisplay, toKg, weightStep } = useUnits();
 const { distanceUnit, toDisplay: distanceToDisplay, toMeters } = useDistanceUnit();
@@ -83,6 +84,7 @@ function setText(s: SetRow): string {
 const route = useRoute();
 const router = useRouter();
 const workoutId = route.params.id as string;
+const { soundOn, primeAudio, tickSound, doneChime } = useRestSound();
 
 const name = ref('');
 const status = ref('');
@@ -102,53 +104,6 @@ const restLen = ref(90);
  *  every prescription for the remainder of the session. */
 const restPicked = ref(false);
 
-/** Rest-timer sounds: a soft tick at 3-2-1 and a two-tone chime at zero,
- *  synthesized with Web Audio — no files, nothing to load. A device
- *  preference, so it lives in localStorage, not on the server. iOS only
- *  unlocks audio inside a user gesture, so the context is primed from the
- *  Log set / Skip / toggle taps — and the ringer switch still wins. */
-const soundOn = ref(localStorage.getItem('ovl_rest_sound') !== 'off');
-let audioCtx: AudioContext | null = null;
-
-function primeAudio() {
-  if (!soundOn.value) return;
-  type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext };
-  const Ctx = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext;
-  if (!Ctx) return;
-  audioCtx = audioCtx ?? new Ctx();
-  if (audioCtx.state === 'suspended') void audioCtx.resume();
-}
-
-function beep(freq: number, delaySec = 0, durSec = 0.09, gain = 0.2) {
-  if (!audioCtx || audioCtx.state !== 'running') return;
-  const at = audioCtx.currentTime + delaySec;
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = freq;
-  g.gain.setValueAtTime(0.0001, at);
-  g.gain.exponentialRampToValueAtTime(gain, at + 0.015);
-  g.gain.exponentialRampToValueAtTime(0.0001, at + durSec);
-  osc.connect(g).connect(audioCtx.destination);
-  osc.start(at);
-  osc.stop(at + durSec + 0.05);
-}
-
-const tickSound = () => beep(880, 0, 0.06, 0.12);
-function doneChime() {
-  beep(880, 0, 0.12);
-  beep(1318.5, 0.14, 0.22);
-}
-
-function toggleSound() {
-  soundOn.value = !soundOn.value;
-  localStorage.setItem('ovl_rest_sound', soundOn.value ? 'on' : 'off');
-  // Audible feedback doubles as the unlock gesture.
-  if (soundOn.value) {
-    primeAudio();
-    tickSound();
-  }
-}
 let tick: ReturnType<typeof setInterval> | undefined;
 
 /** Timers are persisted as absolute timestamps rather than held as countdowns
@@ -501,13 +456,6 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
         <option :value="120">Rest 2:00</option>
         <option :value="180">Rest 3:00</option>
       </select>
-      <button
-        class="btn btn-outline-secondary"
-        :title="soundOn ? 'Rest sounds on' : 'Rest sounds off'"
-        @click="toggleSound"
-      >
-        <i :class="soundOn ? 'ti ti-volume' : 'ti ti-volume-off'"></i>
-      </button>
       <button class="btn btn-theme" @click="complete"><i class="ti ti-check me-1"></i>Finish</button>
     </div>
   </div>

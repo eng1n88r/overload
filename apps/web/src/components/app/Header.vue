@@ -1,13 +1,20 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useAppOptionStore } from '@/stores/app-option';
 import { useAuthStore } from '@/stores/auth';
-import { RouterLink, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import ColorModeSwitch from '@/components/app/ColorModeSwitch.vue';
 import ThemeColorPicker from '@/components/app/ThemeColorPicker.vue';
+import { useRestSound } from '@/composables/rest-sound';
 
 const appOption = useAppOptionStore();
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
+
+// Rest sounds are a live-session concern; the toggle only shows there.
+const { soundOn, toggleSound } = useRestSound();
+const onLiveSession = computed(() => route.path.endsWith('/live'));
 
 async function logout() {
 	await auth.logout();
@@ -63,6 +70,16 @@ function toggleAppSidebarMobileToggled() {
 		
 		<!-- BEGIN menu -->
 		<div class="menu">
+			<div v-if="onLiveSession" class="menu-item">
+				<a
+					href="#"
+					class="menu-link"
+					:title="soundOn ? 'Rest sounds on' : 'Rest sounds off'"
+					@click.prevent="toggleSound"
+				>
+					<div class="menu-icon"><i class="ti nav-icon" :class="soundOn ? 'ti-volume' : 'ti-volume-off'"></i></div>
+				</a>
+			</div>
 			<color-mode-switch />
 			<theme-color-picker />
 			<div class="menu-item dropdown dropdown-mobile-full">
