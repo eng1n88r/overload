@@ -1,9 +1,14 @@
 name: overload
 
+# Two-stage deploys, deliberately decoupled:
+#   1. Test:    docker compose build overload-test && docker compose up -d overload-test
+#   2. Promote (only after the change is approved on :3003):
+#               docker tag overload:test overload:stable && docker compose up -d overload
+# Prod never builds; it runs whatever was last promoted to overload:stable.
+
 services:
   overload:
-    build: .
-    image: overload:latest
+    image: overload:stable
     container_name: overload
     ports:
       - "3002:3001"
@@ -15,17 +20,16 @@ services:
       - ./appdata:/data
     restart: unless-stopped
 
-  # Demo-data playground: same image, own database. Try changes here instead of
-  # on the real training log. First boot migrates and seeds the catalog itself;
-  # create the demo user once with:
+  # Demo-data playground: own image tag, own database. Try changes here instead
+  # of on the real training log. First boot migrates and seeds the catalog
+  # itself; create the demo user once with:
   #   docker exec overload-test node dist/seed-demo.js
   # Login demo@overload.example / overload-demo. Wipe = delete ./appdata-test
   # and re-run the exec.
   overload-test:
-    image: overload:latest
+    build: .
+    image: overload:test
     container_name: overload-test
-    depends_on:
-      - overload
     ports:
       - "3003:3001"
     environment:
