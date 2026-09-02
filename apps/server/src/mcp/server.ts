@@ -77,16 +77,20 @@ async function resolveWorkoutExercises<T extends { exerciseId: string }>(
   return { resolved, errors };
 }
 
-function fmtSet(s: { reps: number | null; weightKg: number | null; durationSec: number | null; distanceM: number | null; isWarmup: boolean; multiplier: number }) {
+function fmtSet(s: { reps: number | null; weightKg: number | null; durationSec: number | null; distanceM: number | null; isWarmup: boolean; multiplier: number; rpe?: number | null }) {
+  // The effort rating is what the progression reads to size jumps and call
+  // stalls; surfacing it here lets the coach see the same signal in history.
+  const rpe = s.rpe != null ? `@${s.rpe}` : '';
   if (s.durationSec) {
     // Timed holds are seconds-scale; rounding them to minutes turned a 30s
     // side bridge into "1min" and a 15s hold into "0min".
     const dur = s.durationSec < 60 ? `${Math.round(s.durationSec)}s` : `${Math.round(s.durationSec / 60)}min`;
-    return s.distanceM ? `${dur}/${(s.distanceM / 1000).toFixed(1)}km` : dur;
+    const base = s.distanceM ? `${dur}/${(s.distanceM / 1000).toFixed(1)}km` : dur;
+    return `${base}${rpe}`;
   }
   const kg = s.weightKg ? Math.round(s.weightKg * 100) / 100 : s.weightKg;
   const base = s.weightKg ? `${s.reps}x${kg}kg${s.multiplier > 1 ? `x${s.multiplier}` : ''}` : `${s.reps ?? 0}reps`;
-  return s.isWarmup ? `(${base})` : base;
+  return s.isWarmup ? `(${base})` : `${base}${rpe}`;
 }
 
 export function buildMcpServer(user: User): McpServer {
@@ -116,7 +120,7 @@ export function buildMcpServer(user: User): McpServer {
     'query_workout_history',
     {
       description:
-        'List the user\'s workouts, newest first. Each line: date | status | name | exercise: sets (warmups in parentheses). Filter by date range, status or exercise.',
+        'List the user\'s workouts, newest first. Each line: date | status | name | exercise: sets (warmups in parentheses; a rated set carries @<rpe>, e.g. 10x25kg@8.5). Filter by date range, status or exercise.',
       inputSchema: {
         from: z.string().date().optional(),
         to: z.string().date().optional(),

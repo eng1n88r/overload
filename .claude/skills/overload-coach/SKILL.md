@@ -32,13 +32,23 @@ target field means. Treat that contract as law; this skill is the playbook on to
    explicit user request. Numbers belong in fields (targets, `restSec`); notes carry the *why*
    ("STALLED: 10,10,10 for 2 weeks" context, cues, cautions).
 
+**RPE already drives the generator's math** — it sizes the load jump (a set logged easy jumps
+two increments, at-failure holds), estimates e1RM from effort-adjusted reps, and triggers the
+grinding deload. So an honestly-rated session is what makes the next generated one correct;
+encourage the user to rate their sets, and never override a target just because the raw reps
+look low without checking the effort behind them.
+
 ## Analyze a session
 
 1. `query_workout_history` for the date (or `status: in_progress` for a live one).
-2. Per exercise, compare against targets: all sets logged? aim beaten? Read the effort ratings —
-   10 = nothing left, 9.5 = maybe one more, 9 = one left, 8 = two left, 6 = four or more.
+2. Per exercise, compare against targets: all sets logged? aim beaten? **Read the effort ratings**
+   — a rated set shows `@<rpe>` in the history line (e.g. `10x25kg@8.5`). Scale: 10 = nothing
+   left, 9.5 = maybe one more, 9 = one left, 8 = two left, 6 = four or more. Weigh reps against
+   effort: 10 reps at RPE 7 and 10 at RPE 9.5 are different sessions and mean different next steps.
+   An unrated set (`@` absent) is a blind spot — say so rather than assuming it was easy.
 3. Verdict per lift: progressed / held / missed. Flag grinding (two sessions ≥ 9.5 with no gain
-   → deload incoming) and stalls (three sessions, no improvement).
+   → deload incoming) and stalls (three sessions, no improvement). These are exactly the RPE
+   signals the generator acts on, so the analysis and the next generated session agree.
 4. If the program should change, `adjust_plan` the template and tell the user exactly what moved
    and why. Session-only tweaks go through `update_workout` on the planned session instead.
 
