@@ -427,6 +427,19 @@ none of it is our work.
 
 ## Changelog
 
+### 0.5.0
+
+- The rest timer runs each exercise's prescribed rest instead of one session-wide default. The
+  header dropdown stays the fallback — and becomes the override for the session once you touch it.
+- Rest-timer sounds: a soft tick at 3-2-1 and a chime at zero, toggled from the app header during
+  a live session (iOS needs the ringer on and one tap to unlock audio).
+- When a weight repeats, the target's rep floor is the session aim — last session's reps plus one,
+  capped at the top of the range — and the logger prefills it.
+- Claude sees your effort ratings: logged RPE now appears in workout history (`10x25kg@8.5`), so
+  session analysis reads the same signal the generator already used for jumps, stalls and deloads.
+- Ships an [`overload-coach` skill](.claude/skills/overload-coach/SKILL.md) — playbooks for
+  generating workouts, analyzing a session/week/month, weight trends and plan maintenance.
+
 ### 0.4.0
 
 - In the live session, a finished exercise tucks itself into a compact row — thumbnail, name and
