@@ -38,3 +38,19 @@
 		}
 	}
 }
+
+// Dark mode runs a lightened palette, so the light swatch promised an indigo the
+// app never rendered. Same source the accent itself comes from in this mode.
+@if $enable-dark-mode {
+	@include color-mode(dark, true) {
+		@each $name, $value in $theme-colors-dark {
+			.theme-color-item.accent-#{$name} {
+				&:hover,
+				&:focus-visible {
+					background-color: $value;
+					color: color-contrast($value);
+				}
+			}
+		}
+	}
+}

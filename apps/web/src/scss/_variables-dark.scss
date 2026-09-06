@@ -7,7 +7,12 @@ $yellow-dark:       #f9e80d !default;
 $orange-dark:       #ff9f0c !default;
 $aqua-dark:         #0cfff5 !default;
 $blue-dark:         #4e9cff !default;
-$indigo-dark:       #bba4ff !default;
+// Lightened for contrast on the dark background, but not bleached: #bba4ff sat
+// at 82% lightness, paler than every other accent here, and read as lavender
+// rather than indigo. Held just light enough that color-contrast still puts
+// black on the accent -- a step darker flips it to white at 3:1, which is the
+// unreadable-button case the bright accents already taught us.
+$indigo-dark:       #a184ff !default;
 $purple-dark:       #de8cff !default;
 $red-dark:          #ff6060 !default;
 $teal-dark:         #3cd2a5 !default;
