@@ -13,12 +13,17 @@ $blue-dark:         #4e9cff !default;
 // black on the accent -- a step darker flips it to white at 3:1, which is the
 // unreadable-button case the bright accents already taught us.
 $indigo-dark:       #a184ff !default;
-$purple-dark:       #de8cff !default;
+// Same story as indigo below: 77% lightness read as a pastel next to the rest
+// of this palette.
+$purple-dark:       #d074ff !default;
 $red-dark:          #ff6060 !default;
 $teal-dark:         #3cd2a5 !default;
 $green-dark:        #1ecc33 !default;
 $lime-dark:         #81f32d !default;
-$pink-dark:         #f34fa0 !default;
+// Was #f34fa0, which sat at white-on-accent 3.26:1 -- just over the
+// color-contrast threshold, so button labels came out white and unreadable.
+// A touch lighter flips the label to black at 7.8:1.
+$pink-dark:         #f66fb2 !default;
 $cyan-dark:         #30beff !default;
 $default-dark:      $gray-200 !default;
 $dark-dark:         $gray-800 !default;
