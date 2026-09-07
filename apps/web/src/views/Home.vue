@@ -44,22 +44,38 @@ const weightSpark = computed(() => ({
 
 const volumeChart = computed(() => {
   const weeks = data.value?.weeklyVolume ?? [];
+  const values = weeks.map((w) => toDisplay(w.volumeKg, 0) ?? 0);
+  // The last bucket is the week in progress: on a Monday it holds one session
+  // and plunges next to six finished weeks, which reads as a collapse in
+  // training rather than a week that has not happened yet. Draw it as a dashed
+  // continuation so the trend line ends at the last week that is actually
+  // comparable, and the partial week still shows what is banked so far.
+  const last = values.length - 1;
+  const done = values.map((v, i) => (i === last ? null : v));
+  const inProgress = values.map((v, i) => (i >= last - 1 ? v : null));
   return {
     options: {
       chart: { type: 'area', toolbar: { show: false }, sparkline: { enabled: false } },
-      colors: [appVariable.color.theme],
-      stroke: { curve: 'smooth', width: 2 },
-      fill: { type: 'gradient', gradient: { opacityFrom: 0.5, opacityTo: 0.05 } },
+      colors: [appVariable.color.theme, appVariable.color.theme],
+      stroke: { curve: 'smooth', width: 2, dashArray: [0, 4] },
+      fill: { type: 'gradient', gradient: { opacityFrom: [0.5, 0.15], opacityTo: 0.05 } },
       dataLabels: { enabled: false },
+      legend: { show: false },
       grid: { borderColor: `rgba(${appVariable.color.bodyColorRgb}, .15)` },
       xaxis: {
         categories: weeks.map((w) => w.week.slice(5)),
         labels: { style: { colors: appVariable.color.bodyColor } },
       },
       yaxis: { labels: { style: { colors: appVariable.color.bodyColor } } },
-      tooltip: { y: { formatter: (v: number) => `${v.toLocaleString()} ${unit.value}` } },
+      tooltip: {
+        shared: false,
+        y: { formatter: (v: number) => `${v.toLocaleString()} ${unit.value}` },
+      },
     },
-    series: [{ name: 'Volume', data: weeks.map((w) => toDisplay(w.volumeKg, 0) ?? 0) }],
+    series: [
+      { name: 'Volume', data: done },
+      { name: 'This week so far', data: inProgress },
+    ],
   };
 });
 

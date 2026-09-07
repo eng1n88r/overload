@@ -217,9 +217,15 @@ const volumeChart = computed(() => ({
   options: {
     ...baseChart.value,
     chart: { ...baseChart.value, type: 'bar' },
-    colors: [appVariable.color.theme],
-    plotOptions: { bar: { borderRadius: 2, columnWidth: '55%' } },
+    // distributed, so the week in progress can be faded on its own: it is still
+    // being filled in, and a short bar beside finished weeks reads as a drop in
+    // training rather than a week that has not happened yet.
+    colors: weeks.value.map((_, i) =>
+      i === weeks.value.length - 1 ? `rgba(${appVariable.color.themeRgb}, .4)` : appVariable.color.theme,
+    ),
+    plotOptions: { bar: { borderRadius: 2, columnWidth: '55%', distributed: true } },
     dataLabels: { enabled: false },
+    legend: { show: false },
     grid: { borderColor: gridColor.value, padding: { left: 4, right: 4 } },
     states: { hover: { filter: { type: 'none' } } },
     xaxis: { categories: weeks.value.map((w) => w.week.slice(5)), labels: axisStyle.value, axisTicks: { show: false } },
