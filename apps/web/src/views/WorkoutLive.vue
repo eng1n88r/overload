@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useDistanceUnit, useUnits } from '@/composables/units';
 import { api } from '@/api/client';
 import { useRestSound } from '@/composables/rest-sound';
+import { useWakeLock } from '@/composables/wake-lock';
 
 const { unit, toDisplay, toKg, weightStep } = useUnits();
 const { distanceUnit, toDisplay: distanceToDisplay, toMeters } = useDistanceUnit();
@@ -85,6 +86,9 @@ const route = useRoute();
 const router = useRouter();
 const workoutId = route.params.id as string;
 const { soundOn, primeAudio, tickSound, doneChime } = useRestSound();
+// A live session is minutes of watching a rest timer without touching the
+// screen, which is exactly when the phone locks itself.
+const wakeLock = useWakeLock();
 
 const name = ref('');
 const status = ref('');
@@ -282,6 +286,7 @@ onMounted(async () => {
   pruneAbandonedTimers();
   syncTimers();
   tick = setInterval(syncTimers, 1000);
+  if (status.value === 'in_progress') void wakeLock.request();
 });
 onBeforeUnmount(() => clearInterval(tick));
 
@@ -373,6 +378,9 @@ watch(rpeEditing, (setId) => {
 async function logSet(we: LiveExercise) {
   // Synchronous, before any await: iOS ties audio unlock to the tap itself.
   primeAudio();
+  // Safari can refuse a lock requested before any interaction; a logged set is
+  // the gesture, and re-requesting an already-held lock is a no-op.
+  void wakeLock.request();
   const mode = modeOf(we);
   const load = loadKindOf(we.equipment);
   const i = we.input;
@@ -436,6 +444,7 @@ async function complete() {
   // own startedAt regardless.
   if (elapsed.value < 60 && !confirm(`Only ${fmtClock(elapsed.value)} on the clock — finish anyway?`)) return;
   await api.post(`/workouts/${workoutId}/complete`, { durationSec: Math.max(1, elapsed.value) });
+  await wakeLock.release();
   localStorage.removeItem(TIMER_KEY);
   router.push(`/workouts/${workoutId}`);
 }
