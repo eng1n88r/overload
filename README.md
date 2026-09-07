@@ -427,6 +427,19 @@ none of it is our work.
 
 ## Changelog
 
+### 0.6.0
+
+- The screen stays awake for the length of a live session, so the phone stops locking during a
+  rest timer. Released on Finish; needs iOS 16.4+ or Chrome 84+.
+- The week in progress no longer plots as a finished one: the dashboard's trend line continues
+  into it dashed, and the analytics bars fade the current column. A Monday session stopped
+  reading as a collapse in training.
+- The accent menu shows the colour dark mode actually renders — the swatches came from the light
+  palette regardless of mode.
+- Dark palette audited: indigo and purple were pastels, and pink put white labels on its buttons
+  at 3.3:1. Every accent now takes a readable label and clears 4.5:1 against a card.
+- The light theme's honeycomb background is visible instead of a blank page.
+
 ### 0.5.0
 
 - The rest timer runs each exercise's prescribed rest instead of one session-wide default. The
