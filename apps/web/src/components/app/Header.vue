@@ -13,7 +13,7 @@ const router = useRouter();
 const route = useRoute();
 
 // Rest sounds are a live-session concern; the toggle only shows there.
-const { soundOn, toggleSound } = useRestSound();
+const { soundOn, armed, toggleSound } = useRestSound();
 const onLiveSession = computed(() => route.path.endsWith('/live'));
 
 async function logout() {
@@ -74,10 +74,14 @@ function toggleAppSidebarMobileToggled() {
 				<a
 					href="#"
 					class="menu-link"
-					:title="soundOn ? 'Rest sounds on' : 'Rest sounds off'"
+					:title="!soundOn ? 'Rest sounds off' : armed ? 'Rest sounds on' : 'Rest sounds on — tap once to let Safari play them'"
 					@click.prevent="toggleSound"
 				>
-					<div class="menu-icon"><i class="ti nav-icon" :class="soundOn ? 'ti-volume' : 'ti-volume-off'"></i></div>
+					<!-- Dimmed while the audio context is not running: sound is on, but
+					     the browser has not been given the tap it needs to play it. -->
+					<div class="menu-icon" :class="{ 'opacity-50': soundOn && !armed }">
+						<i class="ti nav-icon" :class="soundOn ? 'ti-volume' : 'ti-volume-off'"></i>
+					</div>
 				</a>
 			</div>
 			<color-mode-switch />

@@ -13,6 +13,9 @@ import { ref } from 'vue';
  */
 const soundOn = ref(localStorage.getItem('ovl_rest_sound') !== 'off');
 let audioCtx: AudioContext | null = null;
+/** Whether the context is live, so the UI can say "tap once" instead of just
+ *  staying quiet. iOS hands back a suspended context outside a gesture. */
+const armed = ref(false);
 
 export function primeAudio(): void {
   if (!soundOn.value) return;
@@ -20,11 +23,46 @@ export function primeAudio(): void {
   const Ctx = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext;
   if (!Ctx) return;
   audioCtx = audioCtx ?? new Ctx();
-  if (audioCtx.state === 'suspended') void audioCtx.resume();
+  if (audioCtx.state === 'suspended') {
+    void audioCtx.resume().then(() => {
+      armed.value = audioCtx?.state === 'running';
+    });
+  }
+  armed.value = audioCtx.state === 'running';
+}
+
+/**
+ * Arm from any tap anywhere in the app, not only Log set and the toggle.
+ *
+ * A reload — a deploy, a swipe-back, Safari reaping the tab — drops the
+ * context, and everything after that failed silently until the next set was
+ * logged. Which is backwards: the beeps matter most during the rest that
+ * follows a set, and by then there is nothing left to tap. Any pointer or key
+ * event re-arms it; the listeners stay for the life of the page because the
+ * context can be suspended again at any time (backgrounding, a phone call,
+ * another app taking the audio session).
+ */
+if (typeof window !== 'undefined') {
+  const rearm = () => {
+    if (soundOn.value && (!audioCtx || audioCtx.state !== 'running')) primeAudio();
+  };
+  for (const evt of ['pointerdown', 'touchend', 'keydown']) {
+    window.addEventListener(evt, rearm, { passive: true });
+  }
+  // Coming back from a backgrounded tab is the other moment iOS suspends it.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') rearm();
+  });
 }
 
 function beep(freq: number, delaySec = 0, durSec = 0.09, gain = 0.2): void {
-  if (!audioCtx || audioCtx.state !== 'running') return;
+  // Best-effort revive: a suspended context cannot be resumed here without a
+  // gesture, but asking costs nothing and covers the cases where it can.
+  if (audioCtx && audioCtx.state === 'suspended') primeAudio();
+  if (!audioCtx || audioCtx.state !== 'running') {
+    armed.value = false;
+    return;
+  }
   const at = audioCtx.currentTime + delaySec;
   const osc = audioCtx.createOscillator();
   const g = audioCtx.createGain();
@@ -56,5 +94,5 @@ export function toggleSound(): void {
 }
 
 export function useRestSound() {
-  return { soundOn, primeAudio, tickSound, doneChime, toggleSound };
+  return { soundOn, armed, primeAudio, tickSound, doneChime, toggleSound };
 }
