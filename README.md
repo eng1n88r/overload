@@ -427,6 +427,16 @@ none of it is our work.
 
 ## Changelog
 
+### 0.6.1
+
+- Rest sounds survive a reload. They were armed only by the Log set or toggle tap, so any reload
+  left them silently dead until the next set — which is backwards, since the beeps matter during
+  the rest that follows one. Any tap re-arms them now, and the header icon dims while the browser
+  has not yet been given the tap it needs.
+- The screen wake lock is taken from a tap rather than only on page load. WebKit refuses a lock
+  requested without user activation, so the load-time request was the one the platform could
+  discard — and the phone went back to sleeping mid-session.
+
 ### 0.6.0
 
 - The screen stays awake for the length of a live session, so the phone stops locking during a
