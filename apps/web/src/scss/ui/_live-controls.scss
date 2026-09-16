@@ -1,0 +1,24 @@
+// The live session's control strip: clock, set count, rest length, Finish, and
+// the rest countdown when one is running. Pinned under the app header so that
+// scrolling down to a later exercise does not take the clock -- or the only
+// way to stop it -- off screen.
+.live-controls {
+	// Clear of the app header.
+	top: $app-header-height;
+	// Above the cards it scrolls over, and in the same band Bootstrap gives
+	// other sticky chrome.
+	z-index: 1020;
+	// The page has a patterned backdrop, so the strip needs its own ground or
+	// exercise rows read straight through it. Not fully opaque: a hint of what
+	// is underneath keeps it feeling attached to the page rather than a second
+	// toolbar bolted on.
+	background-color: rgba(var(--#{$prefix}body-bg-rgb), .92);
+	@supports (backdrop-filter: blur(6px)) {
+		background-color: rgba(var(--#{$prefix}body-bg-rgb), .72);
+		backdrop-filter: blur(6px);
+	}
+	// Bleeds to the gutters so the blur covers the full width on a phone,
+	// where the card grid runs edge to edge.
+	margin-inline: -$app-content-padding-x;
+	padding-inline: $app-content-padding-x;
+}

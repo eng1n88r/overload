@@ -452,9 +452,15 @@ async function complete() {
 const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.length, 0));
 </script>
 <template>
-  <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
-    <h1 class="page-header mb-0 me-auto">{{ name }} <small class="d-none d-sm-inline">live session</small></h1>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
+  <h1 class="page-header mb-2">{{ name }} <small class="d-none d-sm-inline">live session</small></h1>
+
+  <!-- Session clock, set count, rest length and Finish stay reachable: mid
+       session the page is long, and scrolling to the fourth exercise used to
+       take the clock and the only way to stop it off screen. The rest bar
+       rides in the same sticky block rather than pinning itself, so the two
+       stack instead of overlapping at the same offset. -->
+  <div class="live-controls sticky-top pt-2 pb-2 mb-1">
+    <div class="d-flex align-items-center flex-wrap gap-2">
       <span class="badge bg-inverse bg-opacity-25 fs-6 font-monospace">
         <i class="ti ti-stopwatch me-1"></i>{{ fmtClock(elapsed) }}
       </span>
@@ -465,21 +471,20 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
         <option :value="120">Rest 2:00</option>
         <option :value="180">Rest 3:00</option>
       </select>
-      <button class="btn btn-theme" @click="complete"><i class="ti ti-check me-1"></i>Finish</button>
+      <button class="btn btn-theme ms-auto" @click="complete"><i class="ti ti-check me-1"></i>Finish</button>
     </div>
-  </div>
 
-  <div
-    v-if="restLeft > 0"
-    class="alert alert-info d-flex align-items-center py-2 sticky-top mb-3"
-    style="z-index: 1020; top: calc(var(--bs-app-header-height, 52px) + 8px)"
-  >
-    <i class="ti ti-hourglass me-2"></i>
-    <strong class="me-2 font-monospace">{{ fmtClock(restLeft) }}</strong>
-    <div class="progress flex-grow-1 mx-2" style="height: 6px">
-      <div class="progress-bar bg-theme" :style="{ width: (restLeft / restLen) * 100 + '%' }"></div>
+    <div
+      v-if="restLeft > 0"
+      class="alert alert-info d-flex align-items-center py-2 mt-2 mb-0"
+    >
+      <i class="ti ti-hourglass me-2"></i>
+      <strong class="me-2 font-monospace">{{ fmtClock(restLeft) }}</strong>
+      <div class="progress flex-grow-1 mx-2" style="height: 6px">
+        <div class="progress-bar bg-theme" :style="{ width: (restLeft / restLen) * 100 + '%' }"></div>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
     </div>
-    <button class="btn btn-sm btn-outline-secondary" @click="skipRest">Skip</button>
   </div>
 
   <div class="row g-3">
