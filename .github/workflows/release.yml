@@ -39,19 +39,85 @@ jobs:
       - name: Build
         run: npm run build
 
+  # One job per architecture, each on a runner of that architecture.
+  #
+  # This used to be a single QEMU build for linux/amd64,linux/arm64. The
+  # emulated arm64 leg wedged on `npm ci` -- native modules compiling under
+  # emulation -- and sat there until Actions killed the job at its six-hour
+  # ceiling, six hours after amd64 had finished in thirty seconds. Each
+  # architecture now builds on its own hardware and the two are stitched into
+  # one manifest below.
   publish:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     needs: check
     # Only version tags publish images; a manual workflow_dispatch run just
     # refreshes the Docker Hub overview via the job below.
     if: startsWith(github.ref, 'refs/tags/v')
+    # A build that hangs should say so in minutes, not burn the job ceiling.
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v6
 
-      # QEMU + buildx for the multi-arch (amd64 + arm64) build.
-      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Pushed by digest only; the human-readable tags are attached to the
+      # manifest list in the merge job, so neither arch can claim them alone.
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      # The filename is the bare digest; the merge job rebuilds the full
+      # reference from it.
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Stitches the per-architecture images into one multi-arch tag.
+  merge:
+    runs-on: ubuntu-latest
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 15
+    steps:
+      - name: Collect digests
+        uses: actions/download-artifact@v5
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
       - uses: docker/setup-buildx-action@v4
 
       - uses: docker/login-action@v4
@@ -70,16 +136,14 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=latest
 
-      - name: Build and push
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect
+        run: docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
 
   # Keeps the Docker Hub repository overview in sync with
   # .github/dockerhub-overview.md. Runs after publish — the Docker Hub
@@ -88,8 +152,8 @@ jobs:
   # Manual dispatch still refreshes the overview on its own.
   overview:
     runs-on: ubuntu-latest
-    needs: publish
-    if: ${{ !cancelled() && (needs.publish.result == 'success' || github.event_name == 'workflow_dispatch') }}
+    needs: merge
+    if: ${{ !cancelled() && (needs.merge.result == 'success' || github.event_name == 'workflow_dispatch') }}
     steps:
       - uses: actions/checkout@v6
 
