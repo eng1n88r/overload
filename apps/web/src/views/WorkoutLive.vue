@@ -450,6 +450,8 @@ async function complete() {
 }
 
 const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.length, 0));
+/** Collapsed exercises, in session order — the desktop summary line. */
+const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds.value.has(we.id)));
 </script>
 <template>
   <h1 class="page-header mb-2">{{ name }} <small class="d-none d-sm-inline">live session</small></h1>
@@ -487,8 +489,38 @@ const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.le
     </div>
   </div>
 
+  <!-- Finished work, desktop only. Two columns align row heights, so a
+       collapsed exercise beside a full card left a hole the height of the
+       card. Lifting the done ones into one line removes the hole and keeps
+       the grid for what is still to do. Narrow screens are a single column
+       where nothing can misalign, so there they stay in place — hence two
+       renderings toggled by breakpoint rather than a resize listener. -->
+  <Card v-if="doneExercises.length" class="mb-3 d-none d-xl-block">
+    <CardBody class="py-2">
+      <div class="d-flex align-items-center flex-wrap gap-2 small">
+        <span class="text-inverse text-opacity-50 fw-bold me-1">DONE</span>
+        <button
+          v-for="we in doneExercises"
+          :key="we.id"
+          type="button"
+          class="btn btn-link btn-sm p-0 text-decoration-none text-inverse"
+          :title="`${we.exerciseName} — click to reopen`"
+          @click="collapsedIds.delete(we.id)"
+        >
+          <i class="ti ti-check text-theme me-1"></i>{{ we.exerciseName }}
+          <span class="text-inverse text-opacity-50">{{ workingSets(we) }}/{{ we.targetSets }}</span>
+        </button>
+      </div>
+    </CardBody>
+  </Card>
+
   <div class="row g-3">
-    <div v-for="we in exercises" :key="we.id" class="col-xl-6">
+    <div
+      v-for="we in exercises"
+      :key="we.id"
+      class="col-xl-6"
+      :class="{ 'd-xl-none': collapsedIds.has(we.id) }"
+    >
       <Card>
         <CardBody
           v-if="collapsedIds.has(we.id)"
