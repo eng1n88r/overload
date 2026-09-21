@@ -5,9 +5,10 @@
 .live-controls {
 	// Clear of the app header.
 	top: $app-header-height;
-	// Above the cards it scrolls over, and in the same band Bootstrap gives
-	// other sticky chrome.
-	z-index: 1020;
+	// Above the cards it scrolls over, but below the app header -- the header
+	// and this strip both sat at 1020, and being later in the document this
+	// one won the tie and painted over the header's own dropdowns.
+	z-index: $app-header-zindex - 1;
 	// The page has a patterned backdrop, so the strip needs its own ground or
 	// exercise rows read straight through it. Not fully opaque: a hint of what
 	// is underneath keeps it feeling attached to the page rather than a second
