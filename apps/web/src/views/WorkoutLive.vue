@@ -270,13 +270,25 @@ async function load() {
     },
   }));
   serverStartedAt.value = w.startedAt ? Date.parse(w.startedAt) : null;
-  if (w.status === 'planned') {
-    const { data: started } = await api.post(`/workouts/${workoutId}/start`);
-    status.value = 'in_progress';
-    serverStartedAt.value = started.workout.startedAt ? Date.parse(started.workout.startedAt) : Date.now();
-  }
   // Reloading mid-session: what was finished stays tucked away.
   for (const we of exercises.value) if (isDone(we)) collapsedIds.value.add(we.id);
+}
+
+/**
+ * Begin the session. Opening the page used to do this on its own, so the clock
+ * started while you were still finding a rack. It is a tap now, which also
+ * gives the two things that need a gesture -- audio and the wake lock -- the
+ * one they were missing.
+ */
+async function start() {
+  primeAudio();
+  const { data } = await api.post(`/workouts/${workoutId}/start`);
+  status.value = 'in_progress';
+  serverStartedAt.value = data.workout.startedAt ? Date.parse(data.workout.startedAt) : Date.now();
+  startedAt.value = serverStartedAt.value;
+  saveTimers();
+  syncTimers();
+  void wakeLock.request();
 }
 
 onMounted(async () => {
@@ -378,6 +390,8 @@ watch(rpeEditing, (setId) => {
 async function logSet(we: LiveExercise) {
   // Synchronous, before any await: iOS ties audio unlock to the tap itself.
   primeAudio();
+  // Logging is itself a start, for anyone who goes straight for the first set.
+  if (status.value !== 'in_progress') await start();
   // Safari can refuse a lock requested before any interaction; a logged set is
   // the gesture, and re-requesting an already-held lock is a no-op.
   void wakeLock.request();
@@ -456,12 +470,21 @@ const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds
 <template>
   <h1 class="page-header mb-2">{{ name }} <small class="d-none d-sm-inline">live session</small></h1>
 
-  <!-- Session clock, set count, rest length and Finish stay reachable: mid
-       session the page is long, and scrolling to the fourth exercise used to
-       take the clock and the only way to stop it off screen. The rest bar
+  <!-- Session clock, set count and rest length stay reachable: mid session the
+       page is long, and scrolling to the fourth exercise used to take the
+       clock off screen entirely. The rest bar
        rides in the same sticky block rather than pinning itself, so the two
        stack instead of overlapping at the same offset. -->
-  <div class="live-controls sticky-top pt-2 pb-2 mb-1">
+  <!-- Before the first tap the page has one job, so it shows one control at
+       full width: nothing to mis-hit, and the clock does not run while you are
+       still walking to the rack. -->
+  <div v-if="status !== 'in_progress'" class="d-grid d-sm-block mb-3">
+    <button class="btn btn-theme btn-lg" @click="start">
+      <i class="ti ti-player-play me-1"></i>Start session
+    </button>
+  </div>
+
+  <div v-else class="live-controls sticky-top pt-2 pb-2 mb-1">
     <div class="d-flex align-items-center flex-wrap gap-2">
       <span class="badge bg-inverse bg-opacity-25 fs-6 font-monospace">
         <i class="ti ti-stopwatch me-1"></i>{{ fmtClock(elapsed) }}
@@ -473,7 +496,6 @@ const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds
         <option :value="120">Rest 2:00</option>
         <option :value="180">Rest 3:00</option>
       </select>
-      <button class="btn btn-theme ms-auto" @click="complete"><i class="ti ti-check me-1"></i>Finish</button>
     </div>
 
     <div
@@ -706,6 +728,18 @@ const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds
           </div>
         </CardBody>
       </Card>
+    </div>
+  </div>
+
+  <!-- Finish sits at the far end of the session, where the thumb is and where
+       it cannot be hit reaching for the rest dropdown. Sticky rather than
+       fixed so it stays inside the content column instead of running under the
+       sidebar, and it appears only once there is a session to finish. -->
+  <div v-if="status === 'in_progress'" class="live-finish sticky-bottom pt-2">
+    <div class="d-grid d-sm-flex justify-content-sm-end">
+      <button class="btn btn-theme btn-lg" @click="complete">
+        <i class="ti ti-check me-1"></i>Finish workout
+      </button>
     </div>
   </div>
 </template>

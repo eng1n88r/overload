@@ -23,3 +23,20 @@
 	margin-inline: -$app-content-padding-x;
 	padding-inline: $app-content-padding-x;
 }
+
+// The Finish bar, pinned at the other end of the session. Same treatment as
+// the control strip above: its own ground so cards do not read through it, and
+// bled to the gutters so that ground reaches the screen edges on a phone.
+.live-finish {
+	// Under the header's dropdowns, like the strip at the top.
+	z-index: $app-header-zindex - 1;
+	background-color: rgba(var(--#{$prefix}body-bg-rgb), .92);
+	@supports (backdrop-filter: blur(6px)) {
+		background-color: rgba(var(--#{$prefix}body-bg-rgb), .72);
+		backdrop-filter: blur(6px);
+	}
+	margin-inline: -$app-content-padding-x;
+	padding-inline: $app-content-padding-x;
+	// Clear of the home indicator on a phone; a plain padding elsewhere.
+	padding-bottom: calc(#{$spacer * .5} + env(safe-area-inset-bottom, 0px));
+}
