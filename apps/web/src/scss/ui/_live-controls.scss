@@ -1,3 +1,18 @@
+// Bleed a full-width bar out to the gutters so its ground reaches the screen
+// edges. The content padding is not one number -- .app-content drops from
+// 2rem to 1rem below md -- and pulling the desktop figure on a phone pushed
+// these bars a centimetre past both edges, which is what made the padding
+// look wrong and the bands sit oddly behind the title.
+@mixin live-bar-bleed {
+	margin-inline: -$app-content-sm-padding-x;
+	padding-inline: $app-content-sm-padding-x;
+
+	@include media-breakpoint-up(md) {
+		margin-inline: -$app-content-padding-x;
+		padding-inline: $app-content-padding-x;
+	}
+}
+
 // The live session's control strip: clock, set count, rest length, Finish, and
 // the rest countdown when one is running. Pinned under the app header so that
 // scrolling down to a later exercise does not take the clock -- or the only
@@ -18,10 +33,7 @@
 		background-color: rgba(var(--#{$prefix}body-bg-rgb), .72);
 		backdrop-filter: blur(6px);
 	}
-	// Bleeds to the gutters so the blur covers the full width on a phone,
-	// where the card grid runs edge to edge.
-	margin-inline: -$app-content-padding-x;
-	padding-inline: $app-content-padding-x;
+	@include live-bar-bleed;
 }
 
 // The Finish bar, pinned at the other end of the session. Same treatment as
@@ -35,8 +47,23 @@
 		background-color: rgba(var(--#{$prefix}body-bg-rgb), .72);
 		backdrop-filter: blur(6px);
 	}
-	margin-inline: -$app-content-padding-x;
-	padding-inline: $app-content-padding-x;
+	@include live-bar-bleed;
 	// Clear of the home indicator on a phone; a plain padding elsewhere.
 	padding-bottom: calc(#{$spacer * .5} + env(safe-area-inset-bottom, 0px));
+	transition: transform .18s ease-out, opacity .18s ease-out;
+
+	// Scrolling back up the page: slide it out of the way rather than fade in
+	// place, so nothing invisible is left sitting over a card.
+	&.live-finish-away {
+		transform: translateY(110%);
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	// Honour a reduced-motion preference: still gets out of the way, just
+	// without the slide.
+	@media (prefers-reduced-motion: reduce) {
+		transition: opacity .12s linear;
+		&.live-finish-away { transform: none; }
+	}
 }
