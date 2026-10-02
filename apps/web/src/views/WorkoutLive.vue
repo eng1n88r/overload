@@ -291,39 +291,7 @@ async function start() {
   void wakeLock.request();
 }
 
-/**
- * Finish hides while you scroll back up the page.
- *
- * Scrolling up mid-session means going back for an earlier exercise, not
- * reaching for the end of the workout, so the bar is just covering a card you
- * are trying to read. It comes back on the way down, and at the foot of the
- * page it stays put — that is where finishing actually happens.
- */
-const finishVisible = ref(true);
-let lastScrollY = 0;
-let scrollQueued = false;
-
-function readScroll() {
-  scrollQueued = false;
-  const y = window.scrollY;
-  const delta = y - lastScrollY;
-  // Below this is jitter and iOS rubber-banding, not a decision to scroll.
-  if (Math.abs(delta) < 6) return;
-  const doc = document.documentElement;
-  const atBottom = y + window.innerHeight >= doc.scrollHeight - 24;
-  finishVisible.value = atBottom || delta > 0;
-  lastScrollY = y;
-}
-
-function onScroll() {
-  if (scrollQueued) return;
-  scrollQueued = true;
-  requestAnimationFrame(readScroll);
-}
-
 onMounted(async () => {
-  lastScrollY = window.scrollY;
-  window.addEventListener('scroll', onScroll, { passive: true });
   await load();
   // after load(), so a persisted rest length wins over the mode default
   await restoreTimers();
@@ -332,10 +300,7 @@ onMounted(async () => {
   tick = setInterval(syncTimers, 1000);
   if (status.value === 'in_progress') void wakeLock.request();
 });
-onBeforeUnmount(() => {
-  clearInterval(tick);
-  window.removeEventListener('scroll', onScroll);
-});
+onBeforeUnmount(() => clearInterval(tick));
 
 /**
  * Minutes of the session not yet accounted for by a logged set.
@@ -766,19 +731,13 @@ const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds
     </div>
   </div>
 
-  <!-- Finish sits at the far end of the session, where the thumb is and where
-       it cannot be hit reaching for the rest dropdown. Sticky rather than
-       fixed so it stays inside the content column instead of running under the
-       sidebar, and it appears only once there is a session to finish. -->
-  <div
-    v-if="status === 'in_progress'"
-    class="live-finish sticky-bottom pt-2"
-    :class="{ 'live-finish-away': !finishVisible }"
-  >
-    <div class="d-grid d-sm-flex justify-content-sm-end">
-      <button class="btn btn-theme btn-lg" @click="complete">
-        <i class="ti ti-check me-1"></i>Finish workout
-      </button>
-    </div>
+  <!-- Finish lives at the end of the page and stays there. Pinned to the
+       viewport it sat over a card you were reading and reappeared every time
+       you scrolled back to the top; reaching the end of the list is itself the
+       signal that the session is over. -->
+  <div v-if="status === 'in_progress'" class="d-grid d-sm-flex justify-content-sm-end mt-3">
+    <button class="btn btn-theme btn-lg" @click="complete">
+      <i class="ti ti-check me-1"></i>Finish workout
+    </button>
   </div>
 </template>

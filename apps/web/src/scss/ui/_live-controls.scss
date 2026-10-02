@@ -35,35 +35,3 @@
 	}
 	@include live-bar-bleed;
 }
-
-// The Finish bar, pinned at the other end of the session. Same treatment as
-// the control strip above: its own ground so cards do not read through it, and
-// bled to the gutters so that ground reaches the screen edges on a phone.
-.live-finish {
-	// Under the header's dropdowns, like the strip at the top.
-	z-index: $app-header-zindex - 1;
-	background-color: rgba(var(--#{$prefix}body-bg-rgb), .92);
-	@supports (backdrop-filter: blur(6px)) {
-		background-color: rgba(var(--#{$prefix}body-bg-rgb), .72);
-		backdrop-filter: blur(6px);
-	}
-	@include live-bar-bleed;
-	// Clear of the home indicator on a phone; a plain padding elsewhere.
-	padding-bottom: calc(#{$spacer * .5} + env(safe-area-inset-bottom, 0px));
-	transition: transform .18s ease-out, opacity .18s ease-out;
-
-	// Scrolling back up the page: slide it out of the way rather than fade in
-	// place, so nothing invisible is left sitting over a card.
-	&.live-finish-away {
-		transform: translateY(110%);
-		opacity: 0;
-		pointer-events: none;
-	}
-
-	// Honour a reduced-motion preference: still gets out of the way, just
-	// without the slide.
-	@media (prefers-reduced-motion: reduce) {
-		transition: opacity .12s linear;
-		&.live-finish-away { transform: none; }
-	}
-}
