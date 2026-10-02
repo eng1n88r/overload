@@ -324,6 +324,25 @@ export function nextTarget(
   return { sets, repsLow, repsHigh: range.high, weightKg: roundToStep(weight, step), deload: false };
 }
 
+/** The rep aim for one session at the load actually prescribed: one past last
+ *  time when that load repeats, the floor of the range when it does not.
+ *  `nextTarget` answers this for its own weight, but a plan template can
+ *  override the weight — a jump written into the plan, or a deload — and an
+ *  aim computed for last week's load then asks a fresh 25 lb for the 12 reps
+ *  that 20 lb earned. */
+export function sessionRepAim(
+  history: SessionPerformance[],
+  weightKg: number | null,
+  range: { low: number; high: number },
+): number {
+  const last = history.map(sessionScore).filter((s): s is SessionScore => s !== null).at(-1);
+  if (!last) return range.low;
+  // History holds the logged figure and prescriptions the snapped one; they
+  // differ in the third decimal, never by anything close to a plate.
+  if (Math.abs((weightKg ?? 0) - last.weight) > 0.1) return range.low;
+  return Math.min(Math.max(last.minReps + 1, range.low), range.high);
+}
+
 /** Warm-up ramp toward a working weight (strength mode): ~40/60/80% singles
  *  and triples. Skipped for light loads where the empty bar covers it. */
 export function warmupRamp(workingWeightKg: number, step = 2.5): { reps: number; weightKg: number }[] {

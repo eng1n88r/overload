@@ -1005,6 +1005,44 @@ describe('generator', () => {
     expect(bench.restSec).toBe(90);
   });
 
+  it('a plan-day load above last session resets the rep aim to the floor', async () => {
+    // Bench history ends at 6 reps x 70 kg. A template that repeats 70 keeps
+    // the beat-last-time aim; one that jumps to 75 must start at the floor,
+    // not ask the new load for the reps the old one earned.
+    const plan = await app.inject({
+      method: 'POST',
+      url: '/api/v1/plans',
+      cookies: { ovl_session: sessionCookie },
+      payload: {
+        name: 'Aim Plan',
+        weeks: 8,
+        daysPerWeek: 2,
+        days: [
+          { dayIndex: 0, name: 'Repeat', targetMuscles: ['chest'], template: [{ exerciseId: 'Test_Bench_Press', sets: 3, repsLow: 6, repsHigh: 10, targetWeightKg: 70 }] },
+          { dayIndex: 1, name: 'Jump', targetMuscles: ['chest'], template: [{ exerciseId: 'Test_Bench_Press', sets: 3, repsLow: 6, repsHigh: 10, targetWeightKg: 75 }] },
+        ],
+      },
+    });
+    expect(plan.statusCode).toBe(200);
+    const [repeatDay, jumpDay] = plan.json().plan.days;
+    const gen = async (planDayId: string, date: string) => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/workouts/generate',
+        cookies: { ovl_session: sessionCookie },
+        payload: { planDayId, date },
+      });
+      expect(res.statusCode).toBe(200);
+      return res.json().workout.exercises[0];
+    };
+    const repeat = await gen(repeatDay.id, '2030-01-07');
+    expect(repeat.targetWeightKg).toBe(70);
+    expect(repeat.targetRepsLow).toBe(7);
+    const jump = await gen(jumpDay.id, '2030-01-09');
+    expect(jump.targetWeightKg).toBe(75);
+    expect(jump.targetRepsLow).toBe(6);
+  });
+
   it('strength mode anchors weight to e1RM, uses 3-6 reps and a warm-up ramp', async () => {
     const res = await app.inject({
       method: 'POST',

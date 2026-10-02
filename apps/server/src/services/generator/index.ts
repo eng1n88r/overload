@@ -7,6 +7,7 @@ import {
   incrementFor,
   isLowerBody,
   nextTarget,
+  sessionRepAim,
   snapKg,
   toDisplayWeight,
   warmupRamp,
@@ -33,6 +34,9 @@ interface GeneratedExercise {
   unit: string | null;
   restSec: number | null;
   notes: string | null;
+  /** Recent performance the aim was judged against — kept so a plan-day
+   *  override of the load can re-judge it. Never persisted. */
+  history: SessionPerformance[];
 }
 
 async function loadHistory(userId: string, exerciseId: string, sessions = 3): Promise<SessionPerformance[]> {
@@ -92,6 +96,7 @@ async function applyProgression(
     // stays a human-readable cue.
     restSec: MODE_CONFIG[mode].restSec,
     notes: notes.length ? notes.join(' | ') : null,
+    history,
   };
 }
 
@@ -231,14 +236,16 @@ export async function generateWorkout(userId: string, opts: GenerateOptions = {}
         isDeload ? 'deload week — reduced volume' : null,
         gen.notes,
       ].filter(Boolean);
-      // The template's range is the program; the generator's repsLow is this
-      // session's aim (beat last time by one rep). Keep the aim, boxed into
-      // the template's range — a static template floor must not undo it.
+      // The template's range is the program; repsLow is this session's aim —
+      // beat last time by one rep, but only at the same load. The load here
+      // may be the template's, not the generator's, so the aim is re-judged
+      // against it: a jump or a deload starts from the floor of the range.
       const tRepsHigh = t.repsHigh ?? gen.targetRepsHigh;
+      const tRepsLow = Math.min(t.repsLow ?? gen.targetRepsLow, tRepsHigh);
       exercises.push({
         ...gen,
         targetSets,
-        targetRepsLow: Math.min(Math.max(gen.targetRepsLow, t.repsLow ?? gen.targetRepsLow), tRepsHigh),
+        targetRepsLow: sessionRepAim(gen.history, targetWeightKg, { low: tRepsLow, high: tRepsHigh }),
         targetRepsHigh: tRepsHigh,
         targetWeightKg,
         // Structured, so the logger can pick the right input. The prose note

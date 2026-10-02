@@ -8,6 +8,7 @@ import {
   nextTarget,
   repMaxWeight,
   repRangeFor,
+  sessionRepAim,
   snapKg,
   warmupRamp,
 } from './progression.js';
@@ -377,5 +378,34 @@ describe('nextTarget: the rep floor is a session aim', () => {
     const t = nextTarget([hyp([{ reps: 10, weightKg: 40 }])], 'hypertrophy', 'compound', 2.5);
     expect(t.weightKg).toBe(42.5);
     expect(t.repsLow).toBe(6);
+  });
+});
+
+describe('sessionRepAim: the aim follows the load actually prescribed', () => {
+  const range = { low: 8, high: 12 };
+  const last20lb = [hyp([{ reps: 12, weightKg: 9.07 }, { reps: 12, weightKg: 9.07 }, { reps: 12, weightKg: 9.07 }])];
+
+  it('repeats the load -> one past last time, capped at the top', () => {
+    const t = [hyp([{ reps: 10, weightKg: 9.07 }, { reps: 9, weightKg: 9.07 }])];
+    expect(sessionRepAim(t, 9.07, range)).toBe(10);
+    expect(sessionRepAim(last20lb, 9.07, range)).toBe(12);
+  });
+
+  it('a heavier load written into the plan starts at the floor, not at last week\'s 12', () => {
+    // 20 lb x12,12,12, then the template moves to 25 lb.
+    expect(sessionRepAim(last20lb, 11.34, range)).toBe(8);
+  });
+
+  it('a deload load starts at the floor too', () => {
+    expect(sessionRepAim(last20lb, 6.8, range)).toBe(8);
+  });
+
+  it('treats the snapped lb figure as the same load as the logged one', () => {
+    // logged 9.07, prescribed snapKg(9.07, "lb") = 9.0718474
+    expect(sessionRepAim(last20lb, snapKg(9.07, 'lb'), range)).toBe(12);
+  });
+
+  it('no history -> the floor', () => {
+    expect(sessionRepAim([], 20, range)).toBe(8);
   });
 });
