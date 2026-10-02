@@ -427,6 +427,20 @@ none of it is our work.
 
 ## Changelog
 
+### 0.7.0
+
+- A session starts when you tap Start, not when the page opens — the clock no longer runs while
+  you are still walking to the rack. Start is a single full-width button; once tapped it gives
+  way to the clock, and Finish waits at the end of the exercise list.
+- The session clock, set count and rest length stay pinned under the header while you scroll, so
+  reaching a later exercise no longer takes them off screen.
+- On a wide screen, finished exercises lift into one DONE line instead of leaving a hole beside
+  the card next to them. Phones keep the inline collapsed rows.
+- The generator judges a session's rep aim against the load actually prescribed, so a weight
+  written into the plan — a jump, or a deload week — starts from the floor of the range instead
+  of inheriting the aim earned at the old load.
+- The accent menu is no longer covered by the pinned session controls.
+
 ### 0.6.1
 
 - Rest sounds survive a reload. They were armed only by the Log set or toggle tap, so any reload
