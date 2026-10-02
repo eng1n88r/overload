@@ -1,10 +1,10 @@
 name: overload
 
-# Two-stage deploys, deliberately decoupled:
-#   1. Test:    docker compose build overload-test && docker compose up -d overload-test
-#   2. Promote (only after the change is approved on :3003):
-#               docker tag overload:test overload:stable && docker compose up -d overload
-# Prod never builds; it runs whatever was last promoted to overload:stable.
+# Deploys go straight to prod: build, tag as stable, up.
+#   docker compose build overload-test && docker tag overload:test overload:stable && docker compose up -d overload
+# overload-test is parked behind the "test" profile — a plain `up -d` leaves it
+# off. To bring the playground back on :3003:
+#   docker compose --profile test up -d overload-test
 
 services:
   overload:
@@ -30,6 +30,7 @@ services:
     build: .
     image: overload:test
     container_name: overload-test
+    profiles: [test]
     ports:
       - "3003:3001"
     environment:
