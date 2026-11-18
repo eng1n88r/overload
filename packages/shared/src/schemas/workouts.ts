@@ -42,7 +42,18 @@ export const workoutExerciseSchema = z.object({
   unit: z.enum(['reps', 'seconds']).nullish().describe("'seconds' for timed holds; omit to inherit the exercise default"),
   restSec: numeric(num().int().min(0).max(1800)).nullish().describe('prescribed rest after each working set, seconds — the live rest timer runs it'),
   notes: z.string().max(1000).nullish(),
+  skipped: z.boolean().optional().describe('true when the lifter chose not to do this exercise this session — a decision, not a miss; carry it through when rewriting the list'),
   sets: z.array(setEntrySchema).default([]),
+});
+
+/** PATCH one exercise of a workout. Only the flag the live logger flips. */
+export const workoutExerciseUpdateSchema = z.object({
+  skipped: z.boolean().optional(),
+});
+
+/** Swap one exercise of a workout for another catalog movement. */
+export const workoutExerciseReplaceSchema = z.object({
+  exerciseId: z.string(),
 });
 
 export const workoutStatusSchema = z.enum(['planned', 'in_progress', 'completed', 'skipped']);

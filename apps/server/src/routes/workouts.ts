@@ -7,11 +7,14 @@ import {
   setEntrySchema,
   setUpdateSchema,
   workoutCreateSchema,
+  workoutExerciseReplaceSchema,
+  workoutExerciseUpdateSchema,
   workoutListQuerySchema,
   workoutUpdateSchema,
 } from '@overload/shared';
 import { prisma } from '../lib/prisma.js';
-import { generateWorkout } from '../services/generator/index.js';
+import { alternativesFor, generateWorkout, targetsForExercise } from '../services/generator/index.js';
+import { TRAINING_MODES, type TrainingMode } from '../services/generator/progression.js';
 import {
   createWorkoutForUser,
   exercisesCreateData,
@@ -171,6 +174,126 @@ export default async function workoutRoutes(app: FastifyInstance) {
         include: workoutInclude,
       });
       return { workout: serializeWorkout(workout) };
+    },
+  );
+
+  // Exercise-level actions for the live session: the rack is taken, a joint
+  // complains, time runs out. Each answers with the whole workout, because
+  // two of them move other exercises around.
+  const weParams = z.object({ id: z.string(), weId: z.string() });
+  const findExercise = (userId: string, p: z.infer<typeof weParams>) =>
+    prisma.workoutExercise.findFirst({
+      where: { id: p.weId, workoutId: p.id, workout: { userId } },
+      include: { workout: { select: { mode: true } }, sets: { select: { isWarmup: true } } },
+    });
+  const fullWorkout = async (id: string) =>
+    serializeWorkout(await prisma.workout.findUniqueOrThrow({ where: { id }, include: workoutInclude }));
+
+  // Skip, and its undo. A skipped exercise stays in the record: "chose not
+  // to" and "was never planned" are different facts about a session.
+  r.patch(
+    '/:id/exercises/:weId',
+    { schema: { params: weParams, body: workoutExerciseUpdateSchema } },
+    async (request, reply) => {
+      const we = await findExercise(request.user!.id, request.params);
+      if (!we) return reply.code(404).send({ error: 'Not found' });
+      if (request.body.skipped !== undefined) {
+        await prisma.workoutExercise.update({ where: { id: we.id }, data: { skipped: request.body.skipped } });
+      }
+      return { workout: await fullWorkout(we.workoutId) };
+    },
+  );
+
+  r.delete('/:id/exercises/:weId', { schema: { params: weParams } }, async (request, reply) => {
+    const we = await findExercise(request.user!.id, request.params);
+    if (!we) return reply.code(404).send({ error: 'Not found' });
+    await prisma.$transaction(async (tx) => {
+      await tx.workoutExercise.delete({ where: { id: we.id } });
+      // Close the gap, so order stays the 0..n-1 every writer assumes.
+      const rest = await tx.workoutExercise.findMany({
+        where: { workoutId: we.workoutId },
+        orderBy: { order: 'asc' },
+        select: { id: true, order: true },
+      });
+      for (const [i, row] of rest.entries()) {
+        if (row.order !== i) await tx.workoutExercise.update({ where: { id: row.id }, data: { order: i } });
+      }
+    });
+    return { workout: await fullWorkout(we.workoutId) };
+  });
+
+  r.get('/:id/exercises/:weId/alternatives', { schema: { params: weParams } }, async (request, reply) => {
+    const we = await findExercise(request.user!.id, request.params);
+    if (!we) return reply.code(404).send({ error: 'Not found' });
+    const inWorkout = await prisma.workoutExercise.findMany({
+      where: { workoutId: we.workoutId },
+      select: { exerciseId: true },
+    });
+    return {
+      exercises: await alternativesFor(
+        request.user!.id,
+        we.exerciseId,
+        inWorkout.map((x) => x.exerciseId),
+      ),
+    };
+  });
+
+  r.post(
+    '/:id/exercises/:weId/replace',
+    { schema: { params: weParams, body: workoutExerciseReplaceSchema } },
+    async (request, reply) => {
+      const we = await findExercise(request.user!.id, request.params);
+      if (!we) return reply.code(404).send({ error: 'Not found' });
+      const { exerciseId } = request.body;
+      if (exerciseId === we.exerciseId) return reply.code(400).send({ error: 'That is the exercise already there' });
+      const missing = await validateExerciseIds([{ exerciseId, sets: [] }]);
+      if (missing) return reply.code(400).send({ error: `Unknown exercise ids: ${missing.join(', ')}` });
+
+      // The stand-in gets its own numbers — the weight for a goblet squat says
+      // nothing about a split squat. How much work was planned does carry over.
+      const mode = TRAINING_MODES.includes(we.workout.mode as TrainingMode) ? (we.workout.mode as TrainingMode) : null;
+      const gen = await targetsForExercise(request.user!.id, exerciseId, mode);
+      const plannedSets = we.targetSets ?? gen.targetSets;
+      const targets = {
+        exerciseId,
+        targetRepsLow: gen.targetRepsLow,
+        targetRepsHigh: gen.targetRepsHigh,
+        targetWeightKg: gen.targetWeightKg,
+        unit: gen.unit,
+        restSec: we.restSec ?? gen.restSec,
+        // The old lift's coaching note is about the old lift.
+        notes: gen.notes,
+        skipped: false,
+      };
+
+      if (!we.sets.length) {
+        await prisma.workoutExercise.update({ where: { id: we.id }, data: { ...targets, targetSets: plannedSets } });
+      } else {
+        // Sets already logged are work that happened, on the lift it happened
+        // on. That entry closes where it stands and the stand-in follows it
+        // with whatever was left to do.
+        const working = we.sets.filter((s) => !s.isWarmup).length;
+        await prisma.$transaction([
+          prisma.workoutExercise.updateMany({
+            where: { workoutId: we.workoutId, order: { gt: we.order } },
+            data: { order: { increment: 1 } },
+          }),
+          prisma.workoutExercise.update({
+            where: { id: we.id },
+            // Nothing but warm-ups before the switch: that lift was skipped.
+            data: working ? { targetSets: working, skipped: false } : { skipped: true },
+          }),
+          prisma.workoutExercise.create({
+            data: {
+              ...targets,
+              workoutId: we.workoutId,
+              order: we.order + 1,
+              targetSets: Math.max(1, plannedSets - working),
+            },
+          }),
+        ]);
+      }
+      return { workout: await fullWorkout(we.workoutId) };
     },
   );
 

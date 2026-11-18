@@ -1161,3 +1161,182 @@ describe('generator', () => {
     expect(explicit.json().workout.id).not.toBe(first.json().workout.id);
   });
 });
+
+describe('exercise-level actions', () => {
+  // Own fixtures on calves/traps, so the chest picks and bench history the
+  // generator tests lean on stay exactly as they were.
+  const A = 'Test_Swap_A';
+  const B = 'Test_Swap_B';
+  const C = 'Test_Swap_C';
+  const OTHER = 'Test_Swap_Other';
+
+  const call = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: unknown) =>
+    app.inject({
+      method,
+      url: `/api/v1${url}`,
+      cookies: { ovl_session: sessionCookie },
+      ...(payload !== undefined ? { payload: payload as Record<string, unknown> } : {}),
+    });
+
+  async function planned(exercises: Record<string, unknown>[]) {
+    const res = await call('POST', '/workouts', {
+      date: '2031-03-03',
+      status: 'planned',
+      mode: 'hypertrophy',
+      exercises,
+    });
+    expect(res.statusCode).toBe(200);
+    return res.json().workout;
+  }
+
+  beforeAll(async () => {
+    for (const [id, name, muscle, mechanic] of [
+      [A, 'Test Swap A', 'calves', 'compound'],
+      [B, 'Test Swap B', 'calves', 'compound'],
+      [C, 'Test Swap C', 'calves', 'isolation'],
+      [OTHER, 'Test Swap Other', 'traps', 'compound'],
+    ] as const) {
+      await prisma.exercise.create({
+        data: { id, name, category: 'strength', equipment: 'dumbbells', mechanic, muscles: { create: [{ muscle, role: 'primary' }] } },
+      });
+    }
+    // B has one real session, then three completed workouts where it was
+    // skipped. Those three must not push the real one out of the history
+    // window the progression reads.
+    const sessions: [string, Record<string, unknown>][] = [
+      ['2026-06-01', { exerciseId: B, sets: [{ reps: 8, weightKg: 20 }, { reps: 8, weightKg: 20 }, { reps: 8, weightKg: 20 }] }],
+      ['2026-06-03', { exerciseId: B, skipped: true }],
+      ['2026-06-05', { exerciseId: B, skipped: true }],
+      ['2026-06-08', { exerciseId: B, skipped: true }],
+    ];
+    for (const [date, exercise] of sessions) {
+      const res = await call('POST', '/workouts', { date, status: 'completed', exercises: [exercise] });
+      expect(res.statusCode).toBe(200);
+    }
+  });
+
+  it('skips an exercise and brings it back', async () => {
+    const w = await planned([{ exerciseId: A, targetSets: 3 }, { exerciseId: OTHER }]);
+    const [first, second] = w.exercises;
+    expect(first.skipped).toBe(false);
+
+    const skip = await call('PATCH', `/workouts/${w.id}/exercises/${first.id}`, { skipped: true });
+    expect(skip.statusCode).toBe(200);
+    expect(skip.json().workout.exercises.map((e: { skipped: boolean }) => e.skipped)).toEqual([true, false]);
+
+    const reread = await call('GET', `/workouts/${w.id}`);
+    expect(reread.json().workout.exercises[0].skipped).toBe(true);
+
+    const undo = await call('PATCH', `/workouts/${w.id}/exercises/${first.id}`, { skipped: false });
+    expect(undo.json().workout.exercises[0].skipped).toBe(false);
+
+    const noSession = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/workouts/${w.id}/exercises/${second.id}`,
+      payload: { skipped: true },
+    });
+    expect(noSession.statusCode).toBe(401);
+    const missing = await call('PATCH', `/workouts/${w.id}/exercises/does-not-exist`, { skipped: true });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('removes an exercise with its sets and closes the gap in order', async () => {
+    const w = await planned([
+      { exerciseId: A },
+      { exerciseId: OTHER, sets: [{ reps: 10, weightKg: 10 }] },
+      { exerciseId: C },
+    ]);
+    const res = await call('DELETE', `/workouts/${w.id}/exercises/${w.exercises[1].id}`);
+    expect(res.statusCode).toBe(200);
+    const left = res.json().workout.exercises;
+    expect(left.map((e: { exerciseId: string }) => e.exerciseId)).toEqual([A, C]);
+    expect(left.map((e: { order: number }) => e.order)).toEqual([0, 1]);
+    expect(await prisma.setEntry.count({ where: { workoutExerciseId: w.exercises[1].id } })).toBe(0);
+  });
+
+  it('suggests stand-ins that train the same muscle and are not already in the session', async () => {
+    const w = await planned([{ exerciseId: A }, { exerciseId: OTHER }]);
+    const res = await call('GET', `/workouts/${w.id}/exercises/${w.exercises[0].id}/alternatives`);
+    expect(res.statusCode).toBe(200);
+    const ids = res.json().exercises.map((e: { id: string }) => e.id);
+    // B first: it is the one with history, so the one that comes with a target.
+    expect(ids).toEqual([B, C]);
+    expect(res.json().exercises[0].timesDone).toBe(1);
+
+    const both = await planned([{ exerciseId: A }, { exerciseId: B }]);
+    const narrowed = await call('GET', `/workouts/${both.id}/exercises/${both.exercises[0].id}/alternatives`);
+    expect(narrowed.json().exercises.map((e: { id: string }) => e.id)).toEqual([C]);
+  });
+
+  it('replaces an untouched exercise in place, on its own progression', async () => {
+    const w = await planned([
+      { exerciseId: A, targetSets: 4, targetRepsLow: 12, targetRepsHigh: 15, targetWeightKg: 50, restSec: 75, notes: 'old cue', skipped: true },
+      { exerciseId: OTHER },
+    ]);
+    const res = await call('POST', `/workouts/${w.id}/exercises/${w.exercises[0].id}/replace`, { exerciseId: B });
+    expect(res.statusCode).toBe(200);
+    const [swapped, untouched] = res.json().workout.exercises;
+    expect(swapped).toMatchObject({
+      id: w.exercises[0].id,
+      order: 0,
+      exerciseId: B,
+      // How much work was planned carries over...
+      targetSets: 4,
+      restSec: 75,
+      // ...the numbers are B's own: 8,8,8 at 20 kg last time, read past the
+      // three sessions it was skipped in, so 20 again and one more rep.
+      targetWeightKg: 20,
+      targetRepsLow: 9,
+      targetRepsHigh: 10,
+      notes: null,
+      skipped: false,
+    });
+    expect(untouched).toMatchObject({ exerciseId: OTHER, order: 1 });
+  });
+
+  it('keeps logged work on the lift it was done on and adds the stand-in after it', async () => {
+    const w = await planned([{ exerciseId: A, targetSets: 3 }, { exerciseId: OTHER }]);
+    const weId = w.exercises[0].id;
+    const set = await call('POST', `/workouts/${w.id}/exercises/${weId}/sets`, { reps: 10, weightKg: 30 });
+    expect(set.statusCode).toBe(200);
+
+    const res = await call('POST', `/workouts/${w.id}/exercises/${weId}/replace`, { exerciseId: C });
+    expect(res.statusCode).toBe(200);
+    const list = res.json().workout.exercises;
+    expect(list.map((e: { exerciseId: string }) => e.exerciseId)).toEqual([A, C, OTHER]);
+    expect(list.map((e: { order: number }) => e.order)).toEqual([0, 1, 2]);
+    // One of three done: the original closes at one, the stand-in owes two.
+    expect(list[0]).toMatchObject({ id: weId, targetSets: 1, skipped: false });
+    expect(list[0].sets).toHaveLength(1);
+    expect(list[1]).toMatchObject({ targetSets: 2, skipped: false });
+    expect(list[1].sets).toHaveLength(0);
+  });
+
+  it('refuses a replacement that is the same lift, or not in the catalog', async () => {
+    const w = await planned([{ exerciseId: A }]);
+    const url = `/workouts/${w.id}/exercises/${w.exercises[0].id}/replace`;
+    expect((await call('POST', url, { exerciseId: A })).statusCode).toBe(400);
+    expect((await call('POST', url, { exerciseId: 'No_Such_Lift' })).statusCode).toBe(400);
+    expect((await call('POST', `/workouts/${w.id}/exercises/nope/replace`, { exerciseId: B })).statusCode).toBe(404);
+  });
+
+  // The Edit page saves by re-sending the whole list. Whatever it is handed
+  // has to come back out, or an edit quietly erases the session's detail.
+  it('a full exercise list round-trips targets, rest, notes, the skip flag and set detail', async () => {
+    const w = await planned([{ exerciseId: A }]);
+    const completedAt = '2031-03-03T10:15:00.000Z';
+    const res = await call('PATCH', `/workouts/${w.id}`, {
+      exercises: [
+        { exerciseId: A, targetSets: 3, targetRepsLow: 8, targetRepsHigh: 12, targetWeightKg: 20, restSec: 60, notes: 'cue', skipped: true },
+        { exerciseId: C, sets: [{ reps: 8, weightKg: 20, rpe: 8.5, note: 'slow', incline: 2, completedAt }] },
+      ],
+    });
+    expect(res.statusCode).toBe(200);
+    const [first, second] = res.json().workout.exercises;
+    expect(first).toMatchObject({
+      targetSets: 3, targetRepsLow: 8, targetRepsHigh: 12, targetWeightKg: 20, restSec: 60, notes: 'cue', skipped: true,
+    });
+    expect(second.skipped).toBe(false);
+    expect(second.sets[0]).toMatchObject({ reps: 8, weightKg: 20, rpe: 8.5, note: 'slow', incline: 2, completedAt });
+  });
+});

@@ -27,7 +27,8 @@ const SERVER_INSTRUCTIONS = `Overload is the user's personal training log. Typic
 - Program: resolve_exercise_names (dry-run name resolution) -> add_exercise_alias or create_exercise for gaps -> create_plan (days carry weekday anchors and per-exercise template: sets, reps, targetWeightKg, RIR, rest, per-side, seconds unit) -> generate_week or generate_workout to materialize sessions.
 - Log: log_set during a session; log_body_metric / log_nutrition daily.
 Conventions: weights are kg. Dates accept YYYY-MM-DD or full ISO. Update tools are true PATCH — omitted fields stay unchanged; arrays replace only when present. Exercise references accept catalog id, exact name, or alias.
-Generated targets: in a generated workout, targetRepsLow is the SESSION AIM, not the plan's range floor — when the weight repeats, the generator raises it to last session's reps + 1 (capped at targetRepsHigh), and the logger prefills it. A floor above the plan template's is deliberate; do not "correct" it back via update_workout. Plan templates keep the program's true range in repsLow/High.`;
+Generated targets: in a generated workout, targetRepsLow is the SESSION AIM, not the plan's range floor — when the weight repeats, the generator raises it to last session's reps + 1 (capped at targetRepsHigh), and the logger prefills it. A floor above the plan template's is deliberate; do not "correct" it back via update_workout. Plan templates keep the program's true range in repsLow/High.
+Skipped exercises: the live logger can mark an exercise skipped (shown as [skipped] in history). That is the user's call in the moment, not a missed target — do not count it as a stall, and when rewriting a workout's exercise list pass skipped: true for those entries so the flag survives.`;
 
 function text(value: unknown) {
   return { content: [{ type: 'text' as const, text: typeof value === 'string' ? value : JSON.stringify(value, null, 1) }] };
@@ -120,7 +121,7 @@ export function buildMcpServer(user: User): McpServer {
     'query_workout_history',
     {
       description:
-        'List the user\'s workouts, newest first. Each line: date | status | name | exercise: sets (warmups in parentheses; a rated set carries @<rpe>, e.g. 10x25kg@8.5). Filter by date range, status or exercise.',
+        'List the user\'s workouts, newest first. Each line: date | status | name | exercise: sets (warmups in parentheses; a rated set carries @<rpe>, e.g. 10x25kg@8.5; an exercise the user chose to skip reads [skipped]). Filter by date range, status or exercise.',
       inputSchema: {
         from: z.string().date().optional(),
         to: z.string().date().optional(),
@@ -151,7 +152,13 @@ export function buildMcpServer(user: User): McpServer {
       ]);
       const lines = workouts.map((w) => {
         const exs = w.exercises
-          .map((we) => `${we.exercise.name}: ${we.sets.map(fmtSet).join(',') || 'no sets'}`)
+          .map((we) => {
+            const sets = we.sets.map(fmtSet).join(',');
+            // A skip is a decision the user made in the session; "no sets"
+            // would read as a miss, or as a workout still waiting to be done.
+            const skipped = we.skipped ? '[skipped]' : '';
+            return `${we.exercise.name}: ${[sets, skipped].filter(Boolean).join(' ') || 'no sets'}`;
+          })
           .join(' | ');
         return `${w.date.toISOString().slice(0, 10)} [${w.id}] ${w.status} ${w.name ?? ''} — ${exs}`;
       });

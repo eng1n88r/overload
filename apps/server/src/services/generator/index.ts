@@ -41,7 +41,10 @@ interface GeneratedExercise {
 
 async function loadHistory(userId: string, exerciseId: string, sessions = 3): Promise<SessionPerformance[]> {
   const entries = await prisma.workoutExercise.findMany({
-    where: { exerciseId, workout: { userId, status: 'completed' } },
+    // Only sessions where the lift was actually worked: an exercise skipped or
+    // left unlogged still sits in a completed workout, and counting it spent
+    // one of the few slots the stall and deload rules look back over.
+    where: { exerciseId, workout: { userId, status: 'completed' }, sets: { some: { isWarmup: false } } },
     include: { workout: { select: { date: true } }, sets: { where: { isWarmup: false } } },
     orderBy: { workout: { date: 'desc' } },
     take: sessions,
@@ -100,6 +103,86 @@ async function applyProgression(
   };
 }
 
+/** What Replace needs for a lift swapped into an existing session: the same
+ *  progression a generated workout would have given it, in the user's unit. */
+export async function targetsForExercise(userId: string, exerciseId: string, mode?: TrainingMode | null) {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  const unit: WeightUnit = user.unitPreference === 'lb' ? 'lb' : 'kg';
+  const { history: _history, ...targets } = await applyProgression(
+    userId,
+    exerciseId,
+    mode ?? ((user.trainingMode as TrainingMode) || 'hypertrophy'),
+    unit,
+  );
+  return targets;
+}
+
+// Availability: broad equipment item must be owned (bodyweight/machine/
+// cable/other pass — their real requirement is the apparatus), and the
+// specific apparatus, when set, must be owned. Empty profile = everything.
+function availabilityWhere(equipment: string[]) {
+  return equipment.length
+    ? {
+        equipment: { in: [...equipment, 'bodyweight', 'machine', 'cable', 'other'] },
+        OR: [{ apparatus: null }, { apparatus: { in: equipment } }],
+      }
+    : {};
+}
+
+/** exerciseId -> completed sessions it appears in: "familiar lifts first". */
+async function usageCounts(userId: string): Promise<Map<string, number>> {
+  const usage = await prisma.workoutExercise.groupBy({
+    by: ['exerciseId'],
+    where: { workout: { userId, status: 'completed' }, skipped: false },
+    _count: { exerciseId: true },
+  });
+  return new Map(usage.map((u) => [u.exerciseId, u._count.exerciseId]));
+}
+
+/**
+ * Stand-ins for an exercise mid-session: same kind of movement, same primary
+ * muscle, doable with what the lifter owns. Ranked the way the generator picks
+ * — lifts already in the log first, since those come with a real target.
+ */
+export async function alternativesFor(userId: string, exerciseId: string, exclude: string[], limit = 8) {
+  const original = await prisma.exercise.findUniqueOrThrow({
+    where: { id: exerciseId },
+    include: { muscles: { where: { role: 'primary' } } },
+  });
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  const equipment: string[] = JSON.parse(user.equipment || '[]');
+  const primary = original.muscles.map((m) => m.muscle);
+  const [usageMap, candidates] = await Promise.all([
+    usageCounts(userId),
+    prisma.exercise.findMany({
+      where: {
+        id: { notIn: [...new Set([exerciseId, ...exclude])] },
+        category: original.category,
+        ...(primary.length ? { muscles: { some: { muscle: { in: primary }, role: 'primary' } } } : {}),
+        ...availabilityWhere(equipment),
+      },
+      include: { muscles: { where: { role: 'primary' } } },
+    }),
+  ]);
+  return candidates
+    .sort((a, b) => {
+      const useDiff = (usageMap.get(b.id) ?? 0) - (usageMap.get(a.id) ?? 0);
+      if (useDiff !== 0) return useDiff;
+      if (a.mechanic !== b.mechanic) return a.mechanic === 'compound' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, limit)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      category: c.category,
+      equipment: c.equipment,
+      images: (JSON.parse(c.images) as string[]).map((p) => `/img/exercises/${p}`),
+      primaryMuscles: c.muscles.map((m) => m.muscle),
+      timesDone: usageMap.get(c.id) ?? 0,
+    }));
+}
+
 // Movements from these source categories suit explosive (power) work.
 const EXPLOSIVE_CATEGORIES = new Set(['olympic weightlifting', 'plyometrics', 'powerlifting']);
 
@@ -114,27 +197,14 @@ async function pickExercises(
   mode: TrainingMode,
 ): Promise<string[]> {
   const compoundOnly = MODE_CONFIG[mode].compoundOnly ?? false;
-  const usage = await prisma.workoutExercise.groupBy({
-    by: ['exerciseId'],
-    where: { workout: { userId, status: 'completed' } },
-    _count: { exerciseId: true },
-  });
-  const usageMap = new Map(usage.map((u) => [u.exerciseId, u._count.exerciseId]));
+  const usageMap = await usageCounts(userId);
 
-  // Availability: broad equipment item must be owned (bodyweight/machine/
-  // cable/other pass — their real requirement is the apparatus), and the
-  // specific apparatus, when set, must be owned. Empty profile = everything.
   const candidates = await prisma.exercise.findMany({
     where: {
       category: 'strength',
       ...(compoundOnly ? { mechanic: 'compound' } : {}),
       muscles: { some: { muscle, role: 'primary' } },
-      ...(equipment.length
-        ? {
-            equipment: { in: [...equipment, 'bodyweight', 'machine', 'cable', 'other'] },
-            OR: [{ apparatus: null }, { apparatus: { in: equipment } }],
-          }
-        : {}),
+      ...availabilityWhere(equipment),
     },
     select: { id: true, mechanic: true, name: true, sourceCategory: true },
   });

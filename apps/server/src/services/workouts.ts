@@ -42,6 +42,7 @@ export function serializeWorkout(w: WorkoutFull) {
       // wins, otherwise the movement's catalog default.
       unit: we.unit ?? we.exercise.defaultUnit,
       restSec: we.restSec,
+      skipped: we.skipped,
       notes: we.notes,
       sets: we.sets.map((s) => ({
         id: s.id,
@@ -50,6 +51,7 @@ export function serializeWorkout(w: WorkoutFull) {
         weightKg: s.weightKg,
         durationSec: s.durationSec,
         distanceM: s.distanceM,
+        incline: s.incline,
         isWarmup: s.isWarmup,
         multiplier: s.multiplier,
         resistance: s.resistance,
@@ -83,6 +85,7 @@ export async function exercisesCreateData(exercises: WorkoutCreate['exercises'])
     targetWeightKg: we.targetWeightKg ?? null,
     unit: we.unit ?? null,
     restSec: we.restSec ?? null,
+    skipped: we.skipped ?? false,
     notes: we.notes ?? null,
     sets: {
       create: we.sets.map((s, j) => ({

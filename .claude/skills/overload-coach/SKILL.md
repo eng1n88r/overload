@@ -19,6 +19,9 @@ target field means. Treat that contract as law; this skill is the playbook on to
   state before rewriting an exercise list.
 - Plan day weekday anchors: **0=Mon..6=Sun**. `generate_week` wants a Monday.
 - Prescribed weights must land on the lifter's plate grid (2.5 kg / 5 lb steps).
+- An exercise marked `[skipped]` in history was skipped on purpose in the live session (or
+  swapped for another lift). Not a miss, not a stall — ask why only if it keeps happening, and
+  carry `skipped: true` for it when rewriting a workout's exercise list.
 - Never log, change, or delete data the user didn't ask about. Confirm before any delete.
 
 ## Generate a workout
