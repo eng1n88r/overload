@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { MUSCLES } from '@overload/shared';
-import { dismissPicker, labelize, todayLocal } from '@/composables/format';
+import { dismissPicker, todayLocal } from '@/composables/format';
 import { useDistanceUnit, useUnits } from '@/composables/units';
 import { api, errorMessage } from '@/api/client';
+import ExercisePicker, { type PickerExercise } from '@/components/app/ExercisePicker.vue';
 
 const { unit, toDisplay, toKg } = useUnits();
 const { distanceUnit, toDisplay: distanceToDisplay, toMeters } = useDistanceUnit();
@@ -20,6 +20,13 @@ interface SetForm {
   distance: number | null;
   resistance: number | null;
   isWarmup: boolean;
+  /**
+   * The set as the server sent it, for a row that was loaded rather than
+   * added here. Saving re-sends the whole list, so everything this form has no
+   * field for — effort rating, note, when it was done, load factor, incline —
+   * has to ride along or an edit quietly erases it.
+   */
+  loaded?: RawSet;
 }
 
 type InputMode = 'cardio' | 'timed' | 'reps';
@@ -40,25 +47,34 @@ interface ExerciseForm {
   category: string;
   equipment: string | null;
   unit: string | null;
+  /** The prescription and coaching that came with the exercise. Not editable
+   *  here, and for that reason carried through untouched. */
+  plan: ExercisePlan;
   sets: SetForm[];
 }
-interface PickerResult {
-  id: string;
-  name: string;
-  category: string;
-  equipment: string;
-  images: string[];
-  primaryMuscles: string[];
+interface ExercisePlan {
+  targetSets: number | null;
+  targetRepsLow: number | null;
+  targetRepsHigh: number | null;
+  targetWeightKg: number | null;
+  restSec: number | null;
+  notes: string | null;
+  skipped: boolean;
 }
 interface RawSet {
   reps: number | null;
   weightKg: number | null;
   durationSec: number | null;
   distanceM: number | null;
+  incline: number | null;
   resistance: number | null;
   isWarmup: boolean;
+  multiplier: number;
+  rpe: number | null;
+  note: string | null;
+  completedAt: string | null;
 }
-interface RawExercise {
+interface RawExercise extends ExercisePlan {
   exerciseId: string;
   exerciseName: string;
   image: string | null;
@@ -67,6 +83,10 @@ interface RawExercise {
   unit: string | null;
   sets: RawSet[];
 }
+
+const noPlan = (): ExercisePlan => ({
+  targetSets: null, targetRepsLow: null, targetRepsHigh: null, targetWeightKg: null, restSec: null, notes: null, skipped: false,
+});
 
 const route = useRoute();
 const router = useRouter();
@@ -80,10 +100,9 @@ const exercises = ref<ExerciseForm[]>([]);
 const error = ref('');
 const busy = ref(false);
 
-const pickerQuery = ref('');
-const pickerMuscle = ref('');
-const pickerResults = ref<PickerResult[]>([]);
-let pickerTimer: ReturnType<typeof setTimeout> | undefined;
+/** What the form shows for a stored set. Shared by loading and saving: a field
+ *  still showing this is a field nobody touched. */
+const shownMinutes = (s: RawSet) => (s.durationSec != null ? Math.round(s.durationSec / 60) : null);
 
 onMounted(async () => {
   if (!editId.value) return;
@@ -100,40 +119,37 @@ onMounted(async () => {
     category: we.category ?? 'strength',
     equipment: we.equipment ?? null,
     unit: we.unit ?? null,
+    plan: {
+      targetSets: we.targetSets,
+      targetRepsLow: we.targetRepsLow,
+      targetRepsHigh: we.targetRepsHigh,
+      targetWeightKg: we.targetWeightKg,
+      restSec: we.restSec,
+      notes: we.notes,
+      skipped: we.skipped,
+    },
     sets: we.sets.map((s: RawSet) => ({
       reps: s.reps,
       weight: toDisplay(s.weightKg),
-      durationMin: s.durationSec != null ? Math.round(s.durationSec / 60) : null,
+      durationMin: shownMinutes(s),
       seconds: s.durationSec,
       distance: distanceToDisplay(s.distanceM),
       resistance: s.resistance,
       isWarmup: s.isWarmup,
+      loaded: s,
     })),
   }));
 });
 
-function searchExercises() {
-  clearTimeout(pickerTimer);
-  pickerTimer = setTimeout(async () => {
-    if (!pickerQuery.value.trim() && !pickerMuscle.value) {
-      pickerResults.value = [];
-      return;
-    }
-    const { data } = await api.get('/exercises', {
-      params: {
-        search: pickerQuery.value || undefined,
-        muscle: pickerMuscle.value || undefined,
-        category: pickerQuery.value ? undefined : 'strength',
-        limit: 8,
-      },
-    });
-    pickerResults.value = data.exercises;
-  }, 250);
-}
-
 const emptySet = (): SetForm => ({ reps: null, weight: null, durationMin: null, seconds: null, distance: null, resistance: null, isWarmup: false });
 
-function addExercise(ex: PickerResult) {
+/** A new row starts from the last one's numbers, and only its numbers: the
+ *  rating, note and timestamp belong to the set that earned them. */
+function nextSet(last?: SetForm): SetForm {
+  return last ? { ...last, isWarmup: false, loaded: undefined } : emptySet();
+}
+
+function addExercise(ex: PickerExercise) {
   exercises.value.push({
     exerciseId: ex.id,
     exerciseName: ex.name,
@@ -141,10 +157,9 @@ function addExercise(ex: PickerResult) {
     category: ex.category,
     equipment: ex.equipment,
     unit: null,
+    plan: noPlan(),
     sets: [emptySet()],
   });
-  pickerQuery.value = '';
-  pickerResults.value = [];
 }
 
 function move(i: number, dir: -1 | 1) {
@@ -168,27 +183,48 @@ async function save() {
         const load = loadKindOf(we.equipment);
         return {
           exerciseId: we.exerciseId,
+          ...we.plan,
+          // Null for a lift added here: it inherits the catalog's unit.
+          unit: we.unit,
           sets: we.sets
             .filter(
               (s) =>
                 s.reps != null || s.weight != null || s.durationMin != null || s.seconds != null ||
                 s.distance != null || s.resistance != null,
             )
-            .map((s) => ({
-              reps: mode === 'reps' ? s.reps : null,
-              weightKg: mode !== 'cardio' && load === 'weight' ? toKg(s.weight) : null,
-              resistance: load === 'band' ? s.resistance : null,
-              durationSec:
-                mode === 'cardio'
-                  ? s.durationMin != null
+            .map((s) => {
+              const was = s.loaded;
+              // The form shows rounded values — whole minutes, one decimal of
+              // lb, two of miles. Converting those back would rewrite a 35:30
+              // walk as 36:00 on a save that never touched it, so a field
+              // still showing what was loaded sends the stored number.
+              const weightKg = was && s.weight === toDisplay(was.weightKg) ? was.weightKg : toKg(s.weight);
+              const cardioSec =
+                was && s.durationMin === shownMinutes(was)
+                  ? was.durationSec
+                  : s.durationMin != null
                     ? s.durationMin * 60
-                    : null
-                  : mode === 'timed'
-                    ? s.seconds
-                    : null,
-              distanceM: mode === 'cardio' ? toMeters(s.distance) : null,
-              isWarmup: s.isWarmup,
-            })),
+                    : null;
+              const distanceM =
+                was && s.distance === distanceToDisplay(was.distanceM) ? was.distanceM : toMeters(s.distance);
+              return {
+                reps: mode === 'reps' ? s.reps : null,
+                weightKg: mode !== 'cardio' && load === 'weight' ? weightKg : null,
+                resistance: load === 'band' ? s.resistance : null,
+                durationSec: mode === 'cardio' ? cardioSec : mode === 'timed' ? s.seconds : null,
+                distanceM: mode === 'cardio' ? distanceM : null,
+                isWarmup: s.isWarmup,
+                // A set added here has none of these; leaving multiplier out
+                // lets the server apply the exercise's own load factor.
+                ...(was && {
+                  incline: was.incline,
+                  multiplier: was.multiplier,
+                  rpe: was.rpe,
+                  note: was.note,
+                  completedAt: was.completedAt,
+                }),
+              };
+            }),
         };
       }),
     };
@@ -241,6 +277,7 @@ async function save() {
               <i class="ti ti-barbell text-inverse text-opacity-25"></i>
             </div>
             <span class="fw-500 text-inverse">{{ we.exerciseName }}</span>
+            <span v-if="we.plan.skipped" class="badge bg-inverse bg-opacity-15 text-inverse text-opacity-75 ms-2">skipped</span>
             <div class="ms-auto btn-group">
               <button class="btn btn-sm btn-outline-secondary" @click="move(i, -1)"><i class="ti ti-arrow-up"></i></button>
               <button class="btn btn-sm btn-outline-secondary" @click="move(i, 1)"><i class="ti ti-arrow-down"></i></button>
@@ -279,7 +316,7 @@ async function save() {
             </template>
             <button class="btn btn-sm btn-link text-inverse text-opacity-50 ms-auto" title="Remove set" @click="we.sets.splice(j, 1)"><i class="ti ti-x"></i></button>
           </div>
-          <button class="btn btn-sm btn-outline-theme mt-1" @click="we.sets.push({ ...(we.sets.at(-1) ?? emptySet()), isWarmup: false })">
+          <button class="btn btn-sm btn-outline-theme mt-1" @click="we.sets.push(nextSet(we.sets.at(-1)))">
             <i class="ti ti-plus me-1"></i>Add set
           </button>
         </CardBody>
@@ -296,29 +333,7 @@ async function save() {
           <div class="d-flex fw-bold small mb-3">
             <span class="flex-grow-1">ADD EXERCISE</span>
           </div>
-          <input
-            v-model="pickerQuery"
-            @input="searchExercises"
-            class="form-control mb-2"
-            placeholder="Search catalog..."
-          />
-          <select v-model="pickerMuscle" @change="searchExercises" class="form-select form-select-sm mb-2">
-            <option value="">Filter by muscle...</option>
-            <option v-for="m in MUSCLES" :key="m" :value="m">{{ labelize(m) }}</option>
-          </select>
-          <div v-for="ex in pickerResults" :key="ex.id" class="d-flex align-items-center py-1 border-bottom border-inverse border-opacity-10">
-            <img v-if="ex.images[0]" :src="ex.images[0]" class="rounded object-fit-cover me-2" style="width: 48px; height: 36px" />
-            <div v-else class="rounded bg-white bg-opacity-10 d-flex align-items-center justify-content-center me-2 flex-shrink-0" style="width: 48px; height: 36px">
-              <i class="ti ti-barbell text-inverse text-opacity-25"></i>
-            </div>
-            <div class="flex-grow-1 lh-sm">
-              <div class="text-inverse small fw-500">{{ ex.name }}</div>
-              <div class="text-inverse text-opacity-50" style="font-size: 0.7rem">
-                {{ ex.primaryMuscles.join(', ') }} · {{ ex.equipment }}
-              </div>
-            </div>
-            <button class="btn btn-sm btn-outline-theme ms-2" @click="addExercise(ex)"><i class="ti ti-plus"></i></button>
-          </div>
+          <ExercisePicker @pick="addExercise" />
         </CardBody>
       </Card>
     </div>
