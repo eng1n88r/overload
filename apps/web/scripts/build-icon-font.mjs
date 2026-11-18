@@ -1,7 +1,7 @@
 /**
  * Builds the app's icon font from Tabler Icons.
  *
- * Tabler ships 5,193 glyphs in a 452 KB webfont; Overload uses 32 of them. This
+ * Tabler ships 5,193 glyphs in a 452 KB webfont; Overload uses 39 of them. This
  * subsets the font down to just those and writes the matching stylesheet, so
  * the app ships a few KB instead. Both outputs are committed -- @tabler/icons-webfont
  * is only a devDependency, needed to regenerate.
@@ -21,11 +21,11 @@ const root = resolve(web, '../..');
 
 /** Every Tabler glyph the app uses. Keep alphabetical. */
 const ICONS = [
-  'adjustments', 'apple', 'archive', 'arrow-down', 'arrow-left', 'arrow-up',
+  'adjustments', 'apple', 'archive', 'arrow-back-up', 'arrow-down', 'arrow-left', 'arrow-up',
   'arrows-maximize', 'barbell', 'calendar-week', 'chart-line', 'check',
-  'chevron-down', 'chevron-right', 'color-swatch', 'contrast', 'flame', 'heartbeat', 'hourglass',
+  'chevron-down', 'chevron-right', 'chevron-up', 'color-swatch', 'contrast', 'dots-vertical', 'flame', 'heartbeat', 'hourglass',
   'key', 'layout-dashboard', 'list-check', 'logout', 'moon-stars',
-  'pencil', 'player-play', 'plus', 'sparkles', 'stopwatch', 'sun', 'trash',
+  'pencil', 'player-play', 'player-skip-forward', 'plus', 'replace', 'sparkles', 'stopwatch', 'sun', 'trash',
   'user-circle', 'volume', 'volume-off', 'x',
 ];
 

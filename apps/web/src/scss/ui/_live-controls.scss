@@ -35,3 +35,22 @@
 	}
 	@include live-bar-bleed;
 }
+
+// Collapse and the exercise menu, in the corner of a live card. The glyphs are
+// small and the fingers using them are not: each gets a full 44px target, and
+// the group is pulled back into the card's padding so the icons still sit in
+// the corner rather than 12px inside it.
+.live-card-actions {
+	margin: -.5rem -.75rem 0 0;
+
+	> .btn,
+	> .dropdown > .btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		padding: 0;
+		text-decoration: none;
+	}
+}

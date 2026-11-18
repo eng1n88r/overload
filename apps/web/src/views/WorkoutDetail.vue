@@ -28,6 +28,7 @@ interface WorkoutExerciseRow {
   targetRepsLow: number | null;
   targetRepsHigh: number | null;
   targetWeightKg: number | null;
+  skipped: boolean;
   sets: SetRow[];
 }
 interface WorkoutFull {
@@ -91,7 +92,7 @@ function setLabel(s: SetRow) {
 
     <div class="row g-3">
       <div v-for="we in workout.exercises" :key="we.id" class="col-12 col-md-6 col-lg-4">
-        <Card class="h-100">
+        <Card class="h-100" :class="{ 'opacity-50': we.skipped }">
           <CardBody class="d-flex">
             <RouterLink :to="`/exercises/${we.exerciseId}`" class="flex-shrink-0 me-3">
               <img
@@ -113,6 +114,9 @@ function setLabel(s: SetRow) {
               <RouterLink :to="`/exercises/${we.exerciseId}`" class="fw-500 text-inverse text-decoration-none">
                 {{ we.exerciseName }}
               </RouterLink>
+              <span v-if="we.skipped" class="badge bg-inverse bg-opacity-15 text-inverse ms-2">
+                <i class="ti ti-player-skip-forward me-1"></i>skipped
+              </span>
               <div v-if="we.targetSets" class="small text-inverse text-opacity-50">
                 target {{ we.targetSets }} × {{ we.targetRepsLow }}{{ we.targetRepsHigh !== we.targetRepsLow ? `–${we.targetRepsHigh}` : '' }}
                 <template v-if="we.targetWeightKg">@ {{ toDisplay(we.targetWeightKg) }} {{ unit }}</template>

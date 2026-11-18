@@ -2,7 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useDistanceUnit, useUnits } from '@/composables/units';
-import { api } from '@/api/client';
+import { api, errorMessage } from '@/api/client';
+import ExercisePicker, { type PickerExercise } from '@/components/app/ExercisePicker.vue';
 import { useRestSound } from '@/composables/rest-sound';
 import { useWakeLock } from '@/composables/wake-lock';
 
@@ -35,6 +36,8 @@ interface LiveExercise {
   targetWeightKg: number | null;
   restSec: number | null;
   notes: string | null;
+  /** Deliberately not done this session; stays on the record. */
+  skipped: boolean;
   sets: SetRow[];
   /** weight/distance are in the user's display unit; converted on log */
   input: {
@@ -49,6 +52,7 @@ interface LiveExercise {
     isWarmup: boolean;
   };
 }
+type RawExercise = Omit<LiveExercise, 'input'>;
 
 type InputMode = 'cardio' | 'timed' | 'reps';
 
@@ -247,15 +251,9 @@ function fmtClock(totalSec: number) {
 
 const MODE_REST: Record<string, number> = { strength: 180, power: 180, endurance: 60, hypertrophy: 90 };
 
-async function load() {
-  const { data } = await api.get(`/workouts/${workoutId}`);
-  const w = data.workout;
-  name.value = w.name ?? 'Workout';
-  status.value = w.status;
-  if (w.mode && MODE_REST[w.mode]) restTotal.value = MODE_REST[w.mode];
-  exercises.value = w.exercises.map((we: Omit<LiveExercise, 'input'>) => ({
+function toLive(we: RawExercise): LiveExercise {
+  return {
     ...we,
-    sets: we.sets,
     input: {
       reps: we.sets.at(-1)?.reps ?? we.targetRepsLow ?? null,
       weight: toDisplay(we.sets.at(-1)?.weightKg ?? we.targetWeightKg ?? null),
@@ -268,10 +266,34 @@ async function load() {
       resistance: we.sets.at(-1)?.resistance ?? null,
       isWarmup: false,
     },
-  }));
+  };
+}
+
+async function load() {
+  const { data } = await api.get(`/workouts/${workoutId}`);
+  const w = data.workout;
+  name.value = w.name ?? 'Workout';
+  status.value = w.status;
+  if (w.mode && MODE_REST[w.mode]) restTotal.value = MODE_REST[w.mode];
+  exercises.value = w.exercises.map(toLive);
   serverStartedAt.value = w.startedAt ? Date.parse(w.startedAt) : null;
   // Reloading mid-session: what was finished stays tucked away.
   for (const we of exercises.value) if (isDone(we)) collapsedIds.value.add(we.id);
+}
+
+/**
+ * Take the server's list after an exercise was skipped, swapped or removed.
+ * Rows that are still the same lift keep their inputs: changing one card must
+ * not wipe what is typed into another.
+ */
+function applyWorkout(w: { exercises: RawExercise[] }) {
+  const before = new Map(exercises.value.map((we) => [we.id, we]));
+  exercises.value = w.exercises.map((raw) => {
+    const prev = before.get(raw.id);
+    return prev && prev.exerciseId === raw.exerciseId ? { ...raw, input: prev.input } : toLive(raw);
+  });
+  const ids = new Set(w.exercises.map((we) => we.id));
+  for (const id of collapsedIds.value) if (!ids.has(id)) collapsedIds.value.delete(id);
 }
 
 /**
@@ -378,6 +400,12 @@ function isDone(we: LiveExercise): boolean {
   return we.targetSets != null && workingSets(we) >= we.targetSets;
 }
 
+/** A skipped exercise is always tucked away: bringing it back is the only
+ *  thing left to do with it, and that is what tapping its row does. */
+function isCollapsed(we: LiveExercise): boolean {
+  return we.skipped || collapsedIds.value.has(we.id);
+}
+
 watch(rpeEditing, (setId) => {
   if (!pendingCollapse.value) return;
   const pending = exercises.value.find((x) => x.id === pendingCollapse.value);
@@ -437,7 +465,7 @@ async function logSet(we: LiveExercise) {
   // Warm-ups are not efforts worth rating.
   rpeEditing.value = mode !== 'cardio' && !wasWarmup && created?.set?.id ? created.set.id : null;
   const { data } = await api.get(`/workouts/${workoutId}`);
-  const fresh = data.workout.exercises.find((x: Omit<LiveExercise, 'input'>) => x.id === we.id);
+  const fresh = data.workout.exercises.find((x: RawExercise) => x.id === we.id);
   if (fresh) we.sets = fresh.sets;
   // Crossing the target collapses the card — once. Logging extras into a
   // deliberately re-expanded exercise doesn't keep tucking it away.
@@ -452,6 +480,69 @@ async function removeSet(we: LiveExercise, setId: string) {
   we.sets = we.sets.filter((s) => s.id !== setId);
 }
 
+/** Whole-exercise changes can be refused (a lift already in place, a session
+ *  gone from under the page); say so rather than leave a tap doing nothing. */
+const actionError = ref('');
+async function act(run: () => Promise<void>) {
+  actionError.value = '';
+  try {
+    await run();
+  } catch (err) {
+    actionError.value = errorMessage(err);
+  }
+}
+
+function setSkipped(we: LiveExercise, skipped: boolean) {
+  return act(async () => {
+    const { data } = await api.patch(`/workouts/${workoutId}/exercises/${we.id}`, { skipped });
+    applyWorkout(data.workout);
+    // Brought back means brought back open, even if its sets were all in.
+    if (!skipped) collapsedIds.value.delete(we.id);
+  });
+}
+
+function reopen(we: LiveExercise) {
+  if (we.skipped) void setSkipped(we, false);
+  else collapsedIds.value.delete(we.id);
+}
+
+/** The exercise whose card is showing the replacement picker. */
+const replacingId = ref<string | null>(null);
+const alternatives = ref<PickerExercise[]>([]);
+
+function openReplace(we: LiveExercise) {
+  replacingId.value = we.id;
+  alternatives.value = [];
+  return act(async () => {
+    const { data } = await api.get(`/workouts/${workoutId}/exercises/${we.id}/alternatives`);
+    if (replacingId.value === we.id) alternatives.value = data.exercises;
+  });
+}
+
+function replaceWith(we: LiveExercise, ex: PickerExercise) {
+  return act(async () => {
+    const { data } = await api.post(`/workouts/${workoutId}/exercises/${we.id}/replace`, { exerciseId: ex.id });
+    replacingId.value = null;
+    applyWorkout(data.workout);
+    // With sets already logged the original stays, closed at what was done,
+    // and the stand-in is the card below it — so the finished one steps aside.
+    const original = exercises.value.find((x) => x.id === we.id);
+    if (original && original.exerciseId === we.exerciseId && isDone(original)) collapsedIds.value.add(original.id);
+  });
+}
+
+function removeExercise(we: LiveExercise) {
+  const logged = we.sets.length;
+  const question = logged
+    ? `Remove ${we.exerciseName} and the ${logged} set${logged === 1 ? '' : 's'} logged on it?`
+    : `Remove ${we.exerciseName} from this workout?`;
+  if (!confirm(question)) return;
+  return act(async () => {
+    const { data } = await api.delete(`/workouts/${workoutId}/exercises/${we.id}`);
+    applyWorkout(data.workout);
+  });
+}
+
 async function complete() {
   // A sub-minute "session" is a mis-tap or a broken clock more often than a
   // workout — never write one silently. The server cross-checks against its
@@ -464,8 +555,10 @@ async function complete() {
 }
 
 const doneSets = computed(() => exercises.value.reduce((a, we) => a + we.sets.length, 0));
-/** Collapsed exercises, in session order — the desktop summary line. */
-const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds.value.has(we.id)));
+/** Collapsed exercises, in session order — the desktop summary line. Skipped
+ *  ones get their own heading there: set aside is not the same as done. */
+const doneExercises = computed(() => exercises.value.filter((we) => !we.skipped && isCollapsed(we)));
+const skippedExercises = computed(() => exercises.value.filter((we) => we.skipped));
 </script>
 <template>
   <h1 class="page-header mb-1">{{ name }} <small class="d-none d-sm-inline">live session</small></h1>
@@ -517,39 +610,61 @@ const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds
        the grid for what is still to do. Narrow screens are a single column
        where nothing can misalign, so there they stay in place — hence two
        renderings toggled by breakpoint rather than a resize listener. -->
-  <Card v-if="doneExercises.length" class="mb-3 d-none d-xl-block">
+  <Card v-if="doneExercises.length || skippedExercises.length" class="mb-3 d-none d-xl-block">
     <CardBody class="py-2">
       <div class="d-flex align-items-center flex-wrap gap-2 small">
-        <span class="text-inverse text-opacity-50 fw-bold me-1">DONE</span>
-        <button
-          v-for="we in doneExercises"
-          :key="we.id"
-          type="button"
-          class="btn btn-link btn-sm p-0 text-decoration-none text-inverse"
-          :title="`${we.exerciseName} — click to reopen`"
-          @click="collapsedIds.delete(we.id)"
-        >
-          <i class="ti ti-check text-theme me-1"></i>{{ we.exerciseName }}
-          <span class="text-inverse text-opacity-50">{{ workingSets(we) }}/{{ we.targetSets }}</span>
-        </button>
+        <template v-if="doneExercises.length">
+          <span class="text-inverse text-opacity-50 fw-bold me-1">DONE</span>
+          <button
+            v-for="we in doneExercises"
+            :key="we.id"
+            type="button"
+            class="btn btn-link btn-sm p-0 text-decoration-none text-inverse"
+            :title="`${we.exerciseName} — click to reopen`"
+            @click="reopen(we)"
+          >
+            <i class="ti ti-check text-theme me-1"></i>{{ we.exerciseName }}
+            <span class="text-inverse text-opacity-50">{{ workingSets(we) }}/{{ we.targetSets }}</span>
+          </button>
+        </template>
+        <template v-if="skippedExercises.length">
+          <span class="text-inverse text-opacity-50 fw-bold me-1" :class="{ 'ms-3': doneExercises.length }">SKIPPED</span>
+          <button
+            v-for="we in skippedExercises"
+            :key="we.id"
+            type="button"
+            class="btn btn-link btn-sm p-0 text-decoration-none text-inverse text-opacity-75"
+            :title="`${we.exerciseName} — click to bring back`"
+            @click="reopen(we)"
+          >
+            <i class="ti ti-arrow-back-up me-1"></i>{{ we.exerciseName }}
+          </button>
+        </template>
       </div>
     </CardBody>
   </Card>
+
+  <div v-if="actionError" class="alert alert-danger d-flex align-items-center py-2">
+    <span class="flex-grow-1">{{ actionError }}</span>
+    <button type="button" class="btn btn-sm btn-link text-inverse py-0" title="Dismiss" @click="actionError = ''">
+      <i class="ti ti-x"></i>
+    </button>
+  </div>
 
   <div class="row g-3">
     <div
       v-for="we in exercises"
       :key="we.id"
       class="col-xl-6"
-      :class="{ 'd-xl-none': collapsedIds.has(we.id) }"
+      :class="{ 'd-xl-none': isCollapsed(we) }"
     >
       <Card>
         <CardBody
-          v-if="collapsedIds.has(we.id)"
+          v-if="isCollapsed(we)"
           class="py-2"
           role="button"
-          :title="`${we.exerciseName} — tap to expand`"
-          @click="collapsedIds.delete(we.id)"
+          :title="we.skipped ? `${we.exerciseName} — skipped, tap to bring back` : `${we.exerciseName} — tap to expand`"
+          @click="reopen(we)"
         >
           <div class="d-flex align-items-center">
             <img
@@ -566,12 +681,43 @@ const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds
             >
               <i class="ti ti-barbell text-inverse text-opacity-25"></i>
             </div>
-            <span class="fw-500 text-inverse text-truncate">{{ we.exerciseName }}</span>
-            <span class="badge bg-theme bg-opacity-15 text-theme ms-auto me-2 flex-shrink-0">
-              <i class="ti ti-check me-1"></i>{{ workingSets(we) }}/{{ we.targetSets }} sets
-            </span>
-            <i class="ti ti-chevron-down text-inverse text-opacity-50"></i>
+            <span class="fw-500 text-inverse text-truncate" :class="{ 'text-opacity-50': we.skipped }">{{ we.exerciseName }}</span>
+            <template v-if="we.skipped">
+              <span class="badge bg-inverse bg-opacity-15 text-inverse text-opacity-75 ms-auto me-2 flex-shrink-0">
+                <i class="ti ti-player-skip-forward me-1"></i>Skipped
+              </span>
+              <i class="ti ti-arrow-back-up text-inverse text-opacity-50"></i>
+            </template>
+            <template v-else>
+              <span class="badge bg-theme bg-opacity-15 text-theme ms-auto me-2 flex-shrink-0">
+                <i class="ti ti-check me-1"></i>{{ workingSets(we) }}/{{ we.targetSets }} sets
+              </span>
+              <i class="ti ti-chevron-down text-inverse text-opacity-50"></i>
+            </template>
           </div>
+        </CardBody>
+        <!-- Replacing happens in the card itself: on a phone a modal over a
+             half-logged session is one more thing to get out of. -->
+        <CardBody v-else-if="replacingId === we.id">
+          <div class="d-flex align-items-center mb-2">
+            <div class="lh-sm me-2">
+              <div class="small text-inverse text-opacity-50">Replace</div>
+              <div class="fw-500 text-inverse">{{ we.exerciseName }}</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto flex-shrink-0" @click="replacingId = null">
+              Cancel
+            </button>
+          </div>
+          <div v-if="we.sets.length" class="small text-inverse text-opacity-50 mb-2">
+            What is logged stays on {{ we.exerciseName }}; the new lift takes the sets that are left.
+          </div>
+          <ExercisePicker
+            :suggestions="alternatives"
+            suggestions-label="Same muscles, your equipment"
+            :exclude="[we.exerciseId]"
+            icon="ti-replace"
+            @pick="replaceWith(we, $event)"
+          />
         </CardBody>
         <CardBody v-else>
           <div class="d-flex mb-2">
@@ -601,14 +747,41 @@ const doneExercises = computed(() => exercises.value.filter((we) => collapsedIds
               </div>
               <div v-if="we.notes" class="small text-warning">{{ we.notes }}</div>
             </div>
-            <button
-              v-if="isDone(we)"
-              class="btn btn-link text-inverse text-opacity-50 ms-auto p-0 align-self-start"
-              title="Collapse"
-              @click="collapsedIds.add(we.id)"
-            >
-              <i class="ti ti-chevron-up"></i>
-            </button>
+            <div class="live-card-actions ms-auto d-flex align-self-start flex-shrink-0">
+              <button
+                v-if="isDone(we)"
+                type="button"
+                class="btn btn-link text-inverse text-opacity-50"
+                title="Collapse"
+                @click="collapsedIds.add(we.id)"
+              >
+                <i class="ti ti-chevron-up"></i>
+              </button>
+              <div class="dropdown">
+                <button
+                  type="button"
+                  class="btn btn-link text-inverse text-opacity-50"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  title="Skip, replace or remove"
+                  :aria-label="`Skip, replace or remove ${we.exerciseName}`"
+                >
+                  <i class="ti ti-dots-vertical"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end">
+                  <button type="button" class="dropdown-item d-flex align-items-center py-2" @click="setSkipped(we, true)">
+                    <i class="ti ti-player-skip-forward me-2"></i>Skip exercise
+                  </button>
+                  <button type="button" class="dropdown-item d-flex align-items-center py-2" @click="openReplace(we)">
+                    <i class="ti ti-replace me-2"></i>Replace…
+                  </button>
+                  <div class="dropdown-divider"></div>
+                  <button type="button" class="dropdown-item d-flex align-items-center py-2 text-danger" @click="removeExercise(we)">
+                    <i class="ti ti-trash me-2"></i>Remove
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <template v-for="s in we.sets" :key="s.id">
